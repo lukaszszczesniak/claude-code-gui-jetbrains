@@ -13,6 +13,7 @@ const LANGUAGE_OPTIONS = [
   { value: 'french', label: 'French (Français)' },
   { value: 'german', label: 'German (Deutsch)' },
   { value: 'portuguese', label: 'Portuguese (Português)' },
+  { value: 'russian', label: 'Russian (Русский)' },
 ] as const;
 
 export function GeneralSettings() {
