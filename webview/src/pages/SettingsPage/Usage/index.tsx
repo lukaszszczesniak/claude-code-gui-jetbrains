@@ -3,6 +3,7 @@ import { ROUTE_META, Route } from '@/router/routes';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useUsageData } from './useUsageData';
 import { UsageMeter } from './UsageMeter';
+import { CcbNotInstalledNotice } from './CcbNotInstalledNotice';
 
 function formatRelativeTime(date: Date): string {
   const now = new Date();
@@ -58,17 +59,19 @@ function UsageSkeleton() {
 
 export function UsageSettings() {
   const meta = ROUTE_META[Route.SETTINGS_USAGE];
-  const { data, isLoading, error, lastUpdated, refresh } = useUsageData();
+  const { data, isLoading, error, errorKind, lastUpdated, refresh } = useUsageData();
 
   return (
     <div>
       <h2 className="text-xl font-semibold text-zinc-100 mb-6">{meta.label}</h2>
 
-      {error && (
+      {error && errorKind === 'ccb_missing' ? (
+        <CcbNotInstalledNotice onRetry={refresh} isLoading={isLoading} />
+      ) : error ? (
         <div className="mb-6 p-3 bg-red-900/20 border border-red-800/50 rounded-lg text-sm text-red-400">
           {error}
         </div>
-      )}
+      ) : null}
 
       {isLoading && !data ? (
         <UsageSkeleton />

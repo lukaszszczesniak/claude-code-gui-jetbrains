@@ -13,7 +13,26 @@ function getBatteryColor(remaining: number): string {
 
 export function TokenBatteryButton(props: Props) {
   const { className } = props;
-  const { data, isLoading, error } = useUsageData();
+  const { data, isLoading, error, errorKind } = useUsageData();
+
+  if (errorKind === 'ccb_missing') {
+    const handleSetupClick = () => {
+      window.dispatchEvent(new CustomEvent('open-account-usage'));
+    };
+    return (
+      <button
+        onClick={handleSetupClick}
+        title="Click to set up usage tracking"
+        className={`flex items-center gap-1 px-1.5 py-1 rounded transition-colors text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 ${className ?? ''}`}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="4" width="12" height="8" rx="1.5" ry="1.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
+          <rect x="13" y="6.5" width="1.5" height="3" rx="0.5" ry="0.5" fill="currentColor" />
+        </svg>
+        <span className="text-xs">Setup</span>
+      </button>
+    );
+  }
 
   if (!data && !isLoading && error) {
     return null;

@@ -1,5 +1,6 @@
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import {useUsageData} from "@/pages/SettingsPage/Usage/useUsageData";
+import { CcbNotInstalledNotice } from '@/pages/SettingsPage/Usage/CcbNotInstalledNotice';
 import { SectionLabel } from '../SectionLabel';
 import { SkeletonRow } from '../SkeletonRow';
 import { UsageRow } from '../UsageRow';
@@ -11,7 +12,7 @@ interface Props {
 
 export const UsageSection = (props: Props) => {
     const {} = props;
-    const { data: usageData, isLoading: usageLoading, error: usageError, lastUpdated, refresh } = useUsageData();
+    const { data: usageData, isLoading: usageLoading, error: usageError, errorKind: usageErrorKind, lastUpdated, refresh } = useUsageData();
 
     return (
         <div>
@@ -31,9 +32,11 @@ export const UsageSection = (props: Props) => {
                 </div>
             </SectionLabel>
 
-            {usageError && (
+            {usageError && usageErrorKind === 'ccb_missing' ? (
+                <CcbNotInstalledNotice onRetry={refresh} isLoading={usageLoading} />
+            ) : usageError ? (
                 <p className="text-xs text-red-400 mb-2">{usageError}</p>
-            )}
+            ) : null}
 
             {usageLoading && !usageData ? (
                 <>

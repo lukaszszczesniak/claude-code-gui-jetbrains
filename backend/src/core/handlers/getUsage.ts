@@ -26,20 +26,42 @@ interface CcbUsageResponse {
   extra_usage: ExtraUsage | null;
 }
 
-function extractErrorMessage(raw: string): string {
+type UsageErrorKind = 'ccb_missing' | 'npm_missing' | 'auth' | 'network' | 'unknown';
+
+interface UsageErrorInfo {
+  kind: UsageErrorKind;
+  message: string;
+}
+
+function classifyError(raw: string): UsageErrorInfo {
+  if (/npm[^a-z].*(?:command not found|not recognized)|(?:command not found|not recognized).*npm/i.test(raw)) {
+    return { kind: 'npm_missing', message: 'Node.js / npm not found in PATH' };
+  }
+
+  if (/could not determine executable to run/i.test(raw) || /command not found.*ccb|ccb.*not found|ccb.*not recognized/i.test(raw)) {
+    return { kind: 'ccb_missing', message: 'claude-code-battery CLI is not installed' };
+  }
+
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
       const parsed = JSON.parse(jsonMatch[0]);
-      if (parsed.error?.message) return parsed.error.message;
+      if (parsed.error?.message) {
+        return { kind: 'auth', message: parsed.error.message };
+      }
     } catch { /* not JSON, fall through */ }
   }
+
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|getaddrinfo/i.test(raw)) {
+    return { kind: 'network', message: 'Network error reaching Anthropic API' };
+  }
+
   const cleaned = raw
     .split('\n')
     .filter((line) => !/^npm (warn|WARN)\b/.test(line))
     .join('\n')
     .trim();
-  return cleaned || raw;
+  return { kind: 'unknown', message: cleaned || raw };
 }
 
 function execFileAsync(cmd: string, args: string[], opts: { timeout: number }): Promise<{ stdout: string; stderr: string }> {
@@ -55,12 +77,12 @@ const CACHE_TTL_MS = 90_000;
 let cachedUsage: CcbUsageResponse | null = null;
 let cachedAt = 0;
 let inflightPromise: Promise<CcbUsageResponse> | null = null;
-let lastError: string | null = null;
+let lastErrorInfo: UsageErrorInfo | null = null;
 
 export function resetUsageCache(): void {
   cachedUsage = null;
   cachedAt = 0;
-  lastError = null;
+  lastErrorInfo = null;
 }
 
 async function runCcbUsage(): Promise<CcbUsageResponse> {
@@ -76,41 +98,69 @@ export async function getUsageHandler(
   connections: ConnectionManager,
   _bridge: Bridge,
 ): Promise<void> {
-  if (Date.now() - cachedAt < CACHE_TTL_MS && (cachedUsage !== null || lastError !== null)) {
-    connections.sendTo(connectionId, 'ACK', {
-      requestId: message.requestId,
-      status: cachedUsage !== null ? 'ok' : 'error',
-      usage: cachedUsage,
-      error: lastError,
-    });
+  const force = (message.payload as { force?: boolean })?.force === true;
+
+  if (!force && Date.now() - cachedAt < CACHE_TTL_MS && (cachedUsage !== null || lastErrorInfo !== null)) {
+    if (cachedUsage !== null) {
+      connections.sendTo(connectionId, 'ACK', {
+        requestId: message.requestId,
+        status: 'ok',
+        usage: cachedUsage,
+      });
+    } else {
+      connections.sendTo(connectionId, 'ACK', {
+        requestId: message.requestId,
+        status: 'error',
+        usage: null,
+        error: lastErrorInfo?.message ?? null,
+        error_kind: lastErrorInfo?.kind ?? null,
+      });
+    }
     return;
   }
 
+  if (force) {
+    inflightPromise = null;
+  }
+
   try {
-    if (inflightPromise !== null) {
+    if (!force && inflightPromise !== null) {
       try {
         await inflightPromise;
       } catch {
         // absorb inflight rejection; respond based on cachedUsage
       }
-      connections.sendTo(connectionId, 'ACK', {
-        requestId: message.requestId,
-        status: cachedUsage !== null ? 'ok' : 'error',
-        usage: cachedUsage,
-        error: lastError,
-      });
+      if (cachedUsage !== null) {
+        connections.sendTo(connectionId, 'ACK', {
+          requestId: message.requestId,
+          status: 'ok',
+          usage: cachedUsage,
+        });
+      } else {
+        connections.sendTo(connectionId, 'ACK', {
+          requestId: message.requestId,
+          status: 'error',
+          usage: null,
+          error: lastErrorInfo?.message ?? null,
+          error_kind: lastErrorInfo?.kind ?? null,
+        });
+      }
       return;
     }
 
-    inflightPromise = (async () => {
+    const runPromise = (async () => {
       const usage = await runCcbUsage();
       cachedUsage = usage;
       cachedAt = Date.now();
-      lastError = null;
+      lastErrorInfo = null;
       return usage;
     })();
 
-    const usage = await inflightPromise;
+    if (!force) {
+      inflightPromise = runPromise;
+    }
+
+    const usage = await runPromise;
 
     connections.sendTo(connectionId, 'ACK', {
       requestId: message.requestId,
@@ -118,16 +168,19 @@ export async function getUsageHandler(
       usage,
     });
   } catch (err) {
-    const errorMessage = extractErrorMessage(err instanceof Error ? err.message : String(err));
-    lastError = errorMessage;
+    const info = classifyError(err instanceof Error ? err.message : String(err));
+    lastErrorInfo = info;
     cachedAt = Date.now();
     connections.sendTo(connectionId, 'ACK', {
       requestId: message.requestId,
       status: 'error',
       usage: cachedUsage,
-      error: errorMessage,
+      error: info.message,
+      error_kind: info.kind,
     });
   } finally {
-    inflightPromise = null;
+    if (!force) {
+      inflightPromise = null;
+    }
   }
 }

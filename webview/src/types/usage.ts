@@ -25,3 +25,5 @@ export interface UsageResponse {
   iguana_necktie: UsageBucket | null;
   extra_usage: ExtraUsage | null;
 }
+
+export type UsageErrorKind = 'ccb_missing' | 'npm_missing' | 'auth' | 'network' | 'unknown';
