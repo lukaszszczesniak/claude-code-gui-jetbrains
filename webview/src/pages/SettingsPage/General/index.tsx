@@ -1,4 +1,4 @@
-import { SettingSection, SettingRow } from '../common';
+import { SettingSection, SettingRow, ToggleSwitch } from '../common';
 import { ROUTE_META, Route } from '@/router/routes';
 import { useClaudeSettings } from '@/contexts/ClaudeSettingsContext';
 
@@ -23,6 +23,8 @@ export function GeneralSettings() {
   const rawLanguage = scopeSettings.language as string | undefined;
   const isNotSet = rawLanguage === undefined && scope === 'project';
   const currentLanguage = isNotSet ? NOT_SET_VALUE : ((rawLanguage as string) ?? '');
+
+  const useCtrlEnterToSend = (scopeSettings.useCtrlEnterToSend as boolean | undefined) ?? false;
 
   return (
     <div>
@@ -58,6 +60,17 @@ export function GeneralSettings() {
               </option>
             ))}
           </select>
+        </SettingRow>
+
+        <SettingRow
+          label="Use Ctrl Enter To Send"
+          description="When enabled, use Ctrl/Cmd+Enter to send prompts instead of just Enter. This allows Enter to create new lines."
+        >
+          <ToggleSwitch
+            checked={useCtrlEnterToSend}
+            onChange={() => updateSetting('useCtrlEnterToSend', !useCtrlEnterToSend)}
+            ariaLabel="Use Ctrl Enter To Send"
+          />
         </SettingRow>
       </SettingSection>
     </div>

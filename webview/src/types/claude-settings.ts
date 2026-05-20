@@ -24,6 +24,7 @@ export interface ClaudeSettingsState {
   effortLevel: string | null; // CLI effort level — values sourced from ModelInfo.supportedEffortLevels; null = auto
   alwaysThinkingEnabled: boolean; // extended thinking always on
   preferFastMode: boolean; // fast output mode (Opus 4.6 only)
+  useCtrlEnterToSend: boolean; // when true, Ctrl/Cmd+Enter sends; plain Enter inserts a newline
   permissions?: PermissionsConfig;
   [key: string]: unknown; // extensible for future settings
 }
@@ -34,4 +35,5 @@ export const DEFAULT_CLAUDE_SETTINGS: ClaudeSettingsState = {
   effortLevel: null,
   alwaysThinkingEnabled: true,
   preferFastMode: false,
+  useCtrlEnterToSend: false,
 };

@@ -25,6 +25,7 @@ import { useEffort } from '@/hooks/useEffort';
 import { useMention } from './hooks/useMention';
 import { MentionDropdown } from './MentionDropdown';
 import { isMobile } from '@/config/environment';
+import { shouldSubmitOnEnter } from './shouldSubmitOnEnter';
 
 export function ChatInput() {
   const { textareaRef } = useChatInputFocus();
@@ -287,14 +288,29 @@ export function ChatInput() {
     // Slash command interaction
     if (palette.handleSlashKeyDown(e, value)) return;
 
-    // Enter: submit (IME 조합 중에는 무시)
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !isMobile()) {
-      e.preventDefault();
-      if (!disabled && (value.trim() || attachments.length > 0)) {
-        inputHistory.pushToHistory(value);
-        onSubmit(undefined, mode, attachments.length > 0 ? attachments : undefined);
-        clearAttachments();
+    // Enter: submit or newline depending on useCtrlEnterToSend setting.
+    // IME composition and mobile guards always apply to the submit path.
+    if (e.key === 'Enter') {
+      const willSubmit = shouldSubmitOnEnter(
+        {
+          key: e.key,
+          shiftKey: e.shiftKey,
+          ctrlKey: e.ctrlKey,
+          metaKey: e.metaKey,
+          isComposing: e.nativeEvent.isComposing,
+          isMobile: isMobile(),
+        },
+        claudeSettings.useCtrlEnterToSend ?? false,
+      );
+      if (willSubmit) {
+        e.preventDefault();
+        if (!disabled && (value.trim() || attachments.length > 0)) {
+          inputHistory.pushToHistory(value);
+          onSubmit(undefined, mode, attachments.length > 0 ? attachments : undefined);
+          clearAttachments();
+        }
       }
+      // When willSubmit is false: do not prevent default — let the textarea handle it natively
     } else if (e.key === 'ArrowUp' && !palette.showSlashCommands) {
       console.log('[KeyDebug:history-up-triggered]');
       // 복수행: 커서가 첫 번째 줄에 있을 때만 히스토리 탐색
@@ -316,7 +332,7 @@ export function ChatInput() {
       e.preventDefault();
       onChange(historyValue);
     }
-  }, [disabled, value, attachments.length, onSubmit, inputHistory, onChange, palette, mention, cycleMode, clearAttachments, mode]);
+  }, [disabled, value, attachments.length, onSubmit, inputHistory, onChange, palette, mention, cycleMode, clearAttachments, mode, claudeSettings.useCtrlEnterToSend]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
