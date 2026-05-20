@@ -33,13 +33,13 @@ function isFolder(ctx: Context): boolean {
 }
 
 const FolderIcon = () => (
-  <svg className="w-3.5 h-3.5 text-zinc-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg className="w-3.5 h-3.5 text-text-secondary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
   </svg>
 );
 
 const FileIcon = () => (
-  <svg className="w-3.5 h-3.5 text-zinc-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+  <svg className="w-3.5 h-3.5 text-text-secondary shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
     <polyline points="14 2 14 8 20 8" />
   </svg>
@@ -55,12 +55,12 @@ export const ContextPills: React.FC<ContextPillsProps> = ({ context }) => {
       {context.map((ctx, idx) => (
         <div
           key={ctx.path ? `${ctx.type}-${ctx.path}` : `ctx-${idx}`}
-          className="flex items-center gap-1.5 rounded-md bg-zinc-800 border border-zinc-700 px-2 py-1 cursor-pointer hover:bg-zinc-700/50 hover:border-zinc-600 transition-colors"
+          className="flex items-center gap-1.5 rounded-md bg-surface-overlay border border-border-default px-2 py-1 cursor-pointer hover:bg-surface-tooltip/50 hover:border-border-strong transition-colors"
           title={ctx.path}
           onClick={() => handleOpenFile(ctx.path)}
         >
           {isFolder(ctx) ? <FolderIcon /> : <FileIcon />}
-          <span className="text-[0.8461rem] text-zinc-300 truncate max-w-[160px]">
+          <span className="text-[0.8461rem] text-text-secondary truncate max-w-[160px]">
             {getDisplayName(ctx)}
           </span>
         </div>

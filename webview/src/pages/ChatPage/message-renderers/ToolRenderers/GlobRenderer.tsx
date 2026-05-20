@@ -47,7 +47,7 @@ export function GlobRenderer(props: RendererProps) {
     return (
         <ToolWrapper message={props.message}>
             <ToolHeader name={name}>
-                <div className="text-white/80 text-[0.8461rem] line-clamp-2 font-mono">
+                <div className="text-text-primary/80 text-[0.8461rem] line-clamp-2 font-mono">
                     pattern: "{pattern}"
                 </div>
             </ToolHeader>
@@ -55,7 +55,7 @@ export function GlobRenderer(props: RendererProps) {
             {numFiles > 0 ? (
                 <>
                     <div
-                        className="text-white/50 text-[0.9230rem] mt-0.5 cursor-pointer hover:text-white/70 select-none"
+                        className="text-text-primary/50 text-[0.9230rem] mt-0.5 cursor-pointer hover:text-text-primary/70 select-none"
                         onClick={() => setIsExpanded(!isExpanded)}
                     >
                         Found {numFiles} {numFiles === 1 ? 'file' : 'files'}
@@ -66,7 +66,7 @@ export function GlobRenderer(props: RendererProps) {
                             {filenames.map((filename) => (
                                 <div
                                     key={filename}
-                                    className="text-white/50 hover:text-white/80 cursor-pointer truncate leading-[20px]"
+                                    className="text-text-primary/50 hover:text-text-primary/80 cursor-pointer truncate leading-[20px]"
                                     onClick={() => getAdapter().openFile(filename)}
                                 >
                                     {stripCwd(filename)}
@@ -76,7 +76,7 @@ export function GlobRenderer(props: RendererProps) {
                     )}
                 </>
             ) : (
-                <div className="text-white/50 text-[0.8461rem] whitespace-pre-wrap">
+                <div className="text-text-primary/50 text-[0.8461rem] whitespace-pre-wrap">
                     {content}
                 </div>
             )}

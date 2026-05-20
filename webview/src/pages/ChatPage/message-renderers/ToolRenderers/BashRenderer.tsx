@@ -36,7 +36,7 @@ export function BashRenderer(props: RendererProps) {
             <Container>
                 <LabelValue
                     label="IN"
-                    className="border-b border-white/15"
+                    className="border-b border-border-subtle"
                     maxHeight="max-h-[60px]"
                 >
                     {input}

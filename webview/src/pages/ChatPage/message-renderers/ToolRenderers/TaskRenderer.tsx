@@ -63,14 +63,14 @@ export function TaskRenderer(props: RendererProps) {
                 {/* IMPORTANT: ToolHeader uses {children || <description>} pattern,
                 so we MUST include description inside children to preserve it */}
                 <ToolHeader name={name} inProgress={!props.toolResult && !hasSubAgentMessages} className="mb-2.5">
-                    <div className="text-white/60">{description}</div>
+                    <div className="text-text-primary/60">{description}</div>
                 </ToolHeader>
 
                 {/* Prompt input (always visible, collapsed) */}
                 <Container>
                     <LabelValue
                         label="IN"
-                        className="border-b border-white/15"
+                        className="border-b border-border-subtle"
                         maxHeight="max-h-[60px]"
                     >
                         {input}

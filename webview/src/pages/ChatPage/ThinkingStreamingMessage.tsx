@@ -63,10 +63,10 @@ export const ThinkingStreamingMessage: React.FC<ThinkingStreamingMessageProps> =
 
     return (
         <ToolWrapper message={message} className="mt-0">
-            <div className={`text-white/40 streaming-message ${className}`} onClick={() => console.log(thinking)}>
+            <div className={`text-text-primary/40 streaming-message ${className}`} onClick={() => console.log(thinking)}>
                 <div>
                     <div className="mb-0.5 cursor-pointer" onClick={toggleThinkingExpanded}>
-                        <div className="italic text-white/50 flex items-center gap-1">
+                        <div className="italic text-text-primary/50 flex items-center gap-1">
                             Thinking{isStreaming ? '...' : ''}
                             <span
                                 className={`inline-block transition-transform duration-200 text-[0.7em] ${isThinkingExpanded ? 'rotate-180' : ''}`}>▼</span>

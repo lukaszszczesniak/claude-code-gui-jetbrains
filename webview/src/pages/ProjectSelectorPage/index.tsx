@@ -59,10 +59,10 @@ export function ProjectSelectorPage() {
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
+      <div className="h-full flex items-center justify-center bg-surface-base">
         <div className="text-center">
-          <div className="animate-spin w-6 h-6 border-2 border-zinc-500 border-t-zinc-300 rounded-full mx-auto mb-3" />
-          <p className="text-zinc-500 text-sm">Loading projects...</p>
+          <div className="animate-spin w-6 h-6 border-2 border-border-strong border-t-text-secondary rounded-full mx-auto mb-3" />
+          <p className="text-text-tertiary text-sm">Loading projects...</p>
         </div>
       </div>
     );
@@ -70,12 +70,12 @@ export function ProjectSelectorPage() {
 
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
+      <div className="h-full flex items-center justify-center bg-surface-base">
         <div className="text-center">
-          <p className="text-red-400 text-sm mb-2">{error}</p>
+          <p className="text-state-error-fg text-sm mb-2">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="text-zinc-400 text-xs hover:text-zinc-200 underline"
+            className="text-text-secondary text-xs hover:text-text-primary underline"
           >
             Retry
           </button>
@@ -86,17 +86,17 @@ export function ProjectSelectorPage() {
 
   if (projects.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
+      <div className="h-full flex items-center justify-center bg-surface-base">
         <div className="text-center max-w-md px-4 w-full">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center">
-            <svg className="w-6 h-6 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-surface-overlay flex items-center justify-center">
+            <svg className="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
             </svg>
           </div>
-          <p className="text-zinc-400 text-sm mb-4">No projects available</p>
+          <p className="text-text-secondary text-sm mb-4">No projects available</p>
           <button
             onClick={handleOpenFolderDialog}
-            className="w-full border border-dashed border-zinc-700 hover:border-zinc-500 rounded-lg py-2.5 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+            className="w-full border border-dashed border-border-default hover:border-border-strong rounded-lg py-2.5 text-text-tertiary hover:text-text-secondary text-sm transition-colors"
           >
             + Add Project
           </button>
@@ -106,33 +106,33 @@ export function ProjectSelectorPage() {
   }
 
   return (
-    <div className="h-full flex items-center justify-center bg-[#1a1a1a]">
+    <div className="h-full flex items-center justify-center bg-surface-base">
       <div className="w-full max-w-md px-4">
         {/* Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-zinc-800 flex items-center justify-center">
-            <svg className="w-6 h-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-surface-overlay flex items-center justify-center">
+            <svg className="w-6 h-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
             </svg>
           </div>
-          <h2 className="text-zinc-200 text-lg font-medium mb-1">Select Project</h2>
-          <p className="text-zinc-500 text-sm">Choose a project to work on</p>
+          <h2 className="text-text-primary text-lg font-medium mb-1">Select Project</h2>
+          <p className="text-text-tertiary text-sm">Choose a project to work on</p>
         </div>
 
         {/* Project List */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
+        <div className="bg-surface-raised border border-border-default rounded-lg overflow-hidden max-h-80 overflow-y-auto">
           {projects.map((project) => (
             <button
               key={project.path}
               onClick={() => setWorkingDirectory(project.path, { replace: false })}
-              className="w-full px-4 py-3 text-left hover:bg-zinc-800/50 transition-colors border-b border-zinc-800 last:border-b-0 group"
+              className="w-full px-4 py-3 text-left hover:bg-surface-hover transition-colors border-b border-border-default last:border-b-0 group"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-zinc-200 text-sm font-medium truncate">
+                <span className="text-text-primary text-sm font-medium truncate">
                   {project.name}
                 </span>
                 {project.sessionCount > 0 && (
-                  <span className="text-zinc-500 text-xs flex-shrink-0">
+                  <span className="text-text-tertiary text-xs flex-shrink-0">
                     {project.sessionCount} sessions
                   </span>
                 )}
@@ -140,7 +140,7 @@ export function ProjectSelectorPage() {
               <div className="mt-0.5">
                 <MarqueeText
                   text={project.path}
-                  className="text-[0.7692rem] text-zinc-500 group-hover:text-zinc-400"
+                  className="text-[0.7692rem] text-text-tertiary group-hover:text-text-secondary"
                 />
               </div>
             </button>
@@ -150,7 +150,7 @@ export function ProjectSelectorPage() {
         {/* Add Project */}
         <button
           onClick={handleOpenFolderDialog}
-          className="w-full mt-3 border border-dashed border-zinc-800 hover:border-zinc-600 rounded-lg py-2.5 text-zinc-600 hover:text-zinc-300 text-sm transition-colors"
+          className="w-full mt-3 border border-dashed border-border-default hover:border-border-strong rounded-lg py-2.5 text-text-disabled hover:text-text-secondary text-sm transition-colors"
         >
           + Add Project
         </button>

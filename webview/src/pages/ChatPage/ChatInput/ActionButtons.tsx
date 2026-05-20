@@ -30,7 +30,7 @@ export function ActionButtons(props: Props) {
         {/* 클립(첨부) 버튼 */}
         <button
             type="button"
-            className="flex items-center justify-center w-6 h-6 rounded-full text-zinc-500 hover:text-zinc-400 hover:bg-white/10"
+            className="flex items-center justify-center w-6 h-6 rounded-full text-text-tertiary hover:text-text-secondary hover:bg-surface-hover"
             onClick={onAttach}
             title="Attach file"
         >
@@ -42,7 +42,7 @@ export function ActionButtons(props: Props) {
         {/* 슬래시 커맨드 버튼 */}
         <button
             type="button"
-            className="flex items-center justify-center w-6 h-6 rounded-full text-zinc-500 hover:text-zinc-400 hover:bg-white/10 text-sm font-medium"
+            className="flex items-center justify-center w-6 h-6 rounded-full text-text-tertiary hover:text-text-secondary hover:bg-surface-hover text-sm font-medium"
             onClick={onSlashCommand}
             title="Slash commands"
         >
@@ -55,7 +55,7 @@ export function ActionButtons(props: Props) {
         <button
           type="button"
           onClick={onStop}
-          className="flex items-center justify-center w-[26px] h-[26px] rounded-md bg-red-500 hover:bg-red-400 text-white transition-colors"
+          className="flex items-center justify-center w-[26px] h-[26px] rounded-md bg-state-error-fg hover:bg-state-error-fg text-text-inverse transition-colors"
           title="Stop generating"
         >
           <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
@@ -69,7 +69,7 @@ export function ActionButtons(props: Props) {
           disabled={disabled || !hasValue}
           className={`
             flex items-center justify-center w-[26px] h-[26px] rounded-md transition-all
-            ${config.sendButtonBg} text-white
+            ${config.sendButtonBg} text-text-inverse
             ${disabled || !hasValue
               ? 'opacity-40 cursor-not-allowed'
               : 'opacity-100'

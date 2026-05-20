@@ -23,7 +23,7 @@ export function TokenBatteryButton(props: Props) {
       <button
         onClick={handleSetupClick}
         title="Click to set up usage tracking"
-        className={`flex items-center gap-1 px-1.5 py-1 rounded transition-colors text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 ${className ?? ''}`}
+        className={`flex items-center gap-1 px-1.5 py-1 rounded transition-colors text-text-tertiary hover:text-text-primary hover:bg-surface-hover ${className ?? ''}`}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="1" y="4" width="12" height="8" rx="1.5" ry="1.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
@@ -56,7 +56,7 @@ export function TokenBatteryButton(props: Props) {
     <button
       onClick={handleClick}
       title={title}
-      className={`flex items-center gap-1 px-1.5 py-1 rounded transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 ${className ?? ''}`}
+      className={`flex items-center gap-1 px-1.5 py-1 rounded transition-colors text-text-secondary hover:text-text-primary hover:bg-surface-hover ${className ?? ''}`}
     >
       <span className={isLoading ? 'opacity-50' : undefined}>
         <svg

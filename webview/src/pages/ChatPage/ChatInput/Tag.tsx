@@ -17,8 +17,8 @@ export function Tag(props: Props) {
                 inline-flex items-center gap-1 px-1 py-[2px] rounded
                 text-[0.8461rem] font-medium transition-colors
                 ${disabled
-                    ? 'text-zinc-500 cursor-default'
-                    : 'text-zinc-400 cursor-pointer hover:bg-white/[7%]'
+                    ? 'text-text-tertiary cursor-default'
+                    : 'text-text-secondary cursor-pointer hover:bg-surface-base/[7%]'
                 }
                 ${className}
             `}

@@ -9,14 +9,14 @@ interface MessageBoxProps {
 
 /**
  * 사용자 메시지 스타일의 박스 컴포넌트.
- * bg-zinc-800/80 border border-white/25 rounded-lg 스타일을 공유.
+ * bg-surface-hover border border-border-default rounded-lg 스타일을 공유.
  */
 export const MessageBox: React.FC<MessageBoxProps> = ({ children, collapsible = true, className }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div
-      className={`bg-zinc-800/80 border border-white/25 rounded-lg px-[8px] py-[3.5px] ${
+      className={`bg-surface-hover border border-border-default rounded-lg px-[8px] py-[3.5px] ${
         collapsible && !isExpanded ? 'max-h-[280px] overflow-hidden' : ''
       } ${className ?? ''}`}
       onClick={collapsible ? () => setIsExpanded(!isExpanded) : undefined}

@@ -1,54 +1,60 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ThemeMode } from '../types';
+import { SettingKey } from '@/types/settings';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface UseThemeReturn {
+  /** User-facing setting value (SYSTEM | LIGHT | DARK). */
   theme: ThemeMode;
+  /** Persist the theme setting via SettingsContext. */
   setTheme: (theme: ThemeMode) => void;
+  /** Convenience toggle between explicit LIGHT and DARK. */
   toggleTheme: () => void;
+  /** Resolved boolean: true when `.dark` class is currently applied to <html>. */
   isDark: boolean;
 }
 
+/**
+ * Theme hook backed by SettingsContext.
+ *
+ * The actual DOM class is owned by SettingsContext (single source of truth).
+ * This hook returns the persisted ThemeMode plus a derived `isDark` that
+ * reflects the currently rendered theme. For SYSTEM mode, `isDark` follows
+ * the matchMedia query result and updates on system theme changes.
+ */
 export function useTheme(): UseThemeReturn {
-  const [theme, setThemeState] = useState<ThemeMode>(ThemeMode.LIGHT);
+  const { settings, updateSetting } = useSettings();
+  const theme = settings[SettingKey.THEME];
 
-  // Sync with IDE theme via CSS variables
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (theme === ThemeMode.DARK) return true;
+    if (theme === ThemeMode.LIGHT) return false;
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
   useEffect(() => {
-    const detectTheme = () => {
-      // Check for IDE-injected theme class
-      const isDark = document.documentElement.classList.contains('dark') ||
-                     getComputedStyle(document.documentElement)
-                       .getPropertyValue('--ide-bg')
-                       .trim()
-                       .match(/^#[0-3]/); // Dark colors start with 0-3
-      setThemeState(isDark ? ThemeMode.DARK : ThemeMode.LIGHT);
-    };
-
-    detectTheme();
-
-    // Observe class changes for theme sync
-    const observer = new MutationObserver(detectTheme);
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  const setTheme = useCallback((newTheme: ThemeMode) => {
-    setThemeState(newTheme);
-    if (newTheme === ThemeMode.DARK) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    if (theme === ThemeMode.DARK) {
+      setIsDark(true);
+      return;
     }
-  }, []);
+    if (theme === ThemeMode.LIGHT) {
+      setIsDark(false);
+      return;
+    }
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    setIsDark(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [theme]);
+
+  const setTheme = useCallback((next: ThemeMode) => {
+    void updateSetting(SettingKey.THEME, next);
+  }, [updateSetting]);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === ThemeMode.DARK ? ThemeMode.LIGHT : ThemeMode.DARK);
-  }, [theme, setTheme]);
-
-  const isDark = theme === ThemeMode.DARK;
+    setTheme(isDark ? ThemeMode.LIGHT : ThemeMode.DARK);
+  }, [isDark, setTheme]);
 
   return {
     theme,

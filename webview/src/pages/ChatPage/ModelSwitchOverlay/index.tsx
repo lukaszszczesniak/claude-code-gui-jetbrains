@@ -83,14 +83,14 @@ export function ModelSwitchOverlay({ onClose }: ModelSwitchOverlayProps) {
       }}
     >
       {/* Header */}
-      <div className="pt-1 pb-1.5 px-3 text-[0.9230rem] text-zinc-500">
+      <div className="pt-1 pb-1.5 px-3 text-[0.9230rem] text-text-tertiary">
         Select a model
       </div>
 
       {/* Model list */}
       <div className="pb-1.5 px-1">
         {models.length === 0 ? (
-          <div className="px-2 py-1 text-[0.9230rem] text-zinc-500">Loading models…</div>
+          <div className="px-2 py-1 text-[0.9230rem] text-text-tertiary">Loading models…</div>
         ) : models.map((m) => {
           const selected = currentModel === m.value;
           return (
@@ -98,19 +98,19 @@ export function ModelSwitchOverlay({ onClose }: ModelSwitchOverlayProps) {
               key={m.value}
               onClick={() => void handleSelect(m.value)}
               className={`w-full relative flex items-center justify-between px-2 py-1 rounded-md text-left transition-colors ${
-                selected ? 'bg-white/10' : 'hover:bg-white/5'
+                selected ? 'bg-surface-hover' : 'hover:bg-surface-hover'
               }`}
             >
               <span className="flex flex-col min-w-0">
-                <span className={`leading-tight text-[1rem] truncate ${selected ? 'text-zinc-100' : 'text-zinc-200'}`}>
+                <span className={`leading-tight text-[1rem] truncate ${selected ? 'text-text-primary' : 'text-text-primary'}`}>
                   {m.displayName}
                 </span>
-                <span className="leading-normal text-[0.8461rem] truncate text-zinc-400/80">
+                <span className="leading-normal text-[0.8461rem] truncate text-text-secondary/80">
                   {m.description}
                 </span>
               </span>
               {selected && (
-                <CheckIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 flex-shrink-0 text-zinc-300" />
+                <CheckIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 flex-shrink-0 text-text-secondary" />
               )}
             </button>
           );

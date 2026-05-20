@@ -29,7 +29,7 @@ export function GeneralSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">{meta.label}</h2>
+      <h2 className="text-xl font-semibold text-text-primary mb-6">{meta.label}</h2>
 
       <SettingSection title="Claude Code">
         <SettingRow
@@ -37,8 +37,8 @@ export function GeneralSettings() {
           description="Claude's preferred response language"
         >
           <select
-            className={`bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm ${
-              isNotSet ? 'text-zinc-500 italic' : 'text-zinc-100'
+            className={`bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm ${
+              isNotSet ? 'text-text-tertiary italic' : 'text-text-primary'
             }`}
             value={currentLanguage}
             onChange={(e) => {
@@ -51,7 +51,7 @@ export function GeneralSettings() {
             }}
           >
             {scope === 'project' && (
-              <option value={NOT_SET_VALUE} className="text-zinc-500">
+              <option value={NOT_SET_VALUE} className="text-text-tertiary">
                 Not set (use global)
               </option>
             )}

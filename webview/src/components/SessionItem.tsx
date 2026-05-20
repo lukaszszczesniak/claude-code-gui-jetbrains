@@ -80,24 +80,24 @@ export function SessionItem({
         relative px-3 py-2.5 cursor-pointer transition-all duration-150
         border-l-2
         ${isActive
-          ? 'bg-zinc-800 border-blue-500'
-          : 'border-transparent hover:bg-zinc-800/50'
+          ? 'bg-surface-overlay border-border-focus'
+          : 'border-transparent hover:bg-surface-hover'
         }
         group
       `}
     >
       {/* Delete Confirmation Overlay */}
       {showDeleteConfirm && (
-        <div className="absolute inset-0 bg-zinc-900/95 backdrop-blur-sm flex items-center justify-center gap-2 z-10">
+        <div className="absolute inset-0 bg-surface-base backdrop-blur-sm flex items-center justify-center gap-2 z-10">
           <button
             onClick={handleConfirmDelete}
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded transition-colors"
+            className="px-3 py-1.5 bg-state-error-fg hover:bg-state-error-fg text-text-inverse text-xs font-medium rounded transition-colors"
           >
             Delete
           </button>
           <button
             onClick={handleCancelDelete}
-            className="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-xs font-medium rounded transition-colors"
+            className="px-3 py-1.5 bg-surface-tooltip hover:bg-surface-pressed text-text-primary text-xs font-medium rounded transition-colors"
           >
             Cancel
           </button>
@@ -107,7 +107,7 @@ export function SessionItem({
       <div className="flex items-start gap-2.5">
         {/* Session Icon */}
         <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-purple-700 flex items-center justify-center shadow-md">
-          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 text-text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
         </div>
@@ -123,29 +123,29 @@ export function SessionItem({
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={handleRename}
               onKeyDown={handleKeyDown}
-              className="w-full text-sm font-medium bg-zinc-700 text-zinc-100 px-2 py-0.5 rounded border border-blue-500 outline-none"
+              className="w-full text-sm font-medium bg-surface-tooltip text-text-primary px-2 py-0.5 rounded border border-border-focus outline-none"
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <h3 className="text-sm font-medium text-zinc-100 truncate">
+            <h3 className="text-sm font-medium text-text-primary truncate">
               {session.title}
             </h3>
           )}
 
           {/* Preview */}
-          <p className="text-xs text-zinc-400 truncate mt-0.5">
+          <p className="text-xs text-text-secondary truncate mt-0.5">
             {preview}
           </p>
 
           {/* Timestamp & Count */}
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-text-tertiary">
               {relativeTime}
             </span>
             {session.messageCount > 0 && (
               <>
-                <span className="text-zinc-700">•</span>
-                <span className="text-xs text-zinc-500">
+                <span className="text-text-disabled">•</span>
+                <span className="text-xs text-text-tertiary">
                   {session.messageCount} {session.messageCount === 1 ? 'message' : 'messages'}
                 </span>
               </>
@@ -158,10 +158,10 @@ export function SessionItem({
           <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               onClick={handleDeleteClick}
-              className="p-1 hover:bg-zinc-700 rounded transition-colors"
+              className="p-1 hover:bg-surface-tooltip rounded transition-colors"
               title="Delete session"
             >
-              <svg className="w-4 h-4 text-zinc-400 hover:text-red-400" viewBox="0 0 16 16" fill="currentColor">
+              <svg className="w-4 h-4 text-text-secondary hover:text-state-error-fg" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5zM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11zm1.958 1l-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916z"/>
               </svg>
             </button>

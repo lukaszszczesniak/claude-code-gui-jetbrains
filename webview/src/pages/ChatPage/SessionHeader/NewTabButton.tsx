@@ -8,7 +8,7 @@ export function NewTabButton() {
     <button
       id="new-tab-button"
       onClick={openNewTab}
-      className="p-1 rounded transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+      className="p-1 rounded transition-colors text-text-secondary hover:text-text-primary hover:bg-surface-hover"
       title={Label.NEW_TAB}
     >
       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

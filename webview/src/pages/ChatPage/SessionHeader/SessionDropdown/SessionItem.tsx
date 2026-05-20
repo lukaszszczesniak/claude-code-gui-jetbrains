@@ -25,8 +25,8 @@ export function SessionItem(props: Props) {
       onMouseLeave={() => setIsHovered(false)}
       className={`w-full px-2 py-1.5 text-left text-xs rounded transition-colors flex justify-between items-center gap-2 ${
         isSelected
-          ? 'text-zinc-100 bg-zinc-700/70'
-          : 'text-zinc-400 hover:bg-zinc-700/40'
+          ? 'text-text-primary bg-surface-tooltip/70'
+          : 'text-text-secondary hover:bg-surface-tooltip/40'
       }`}
       title={session.title}
     >
@@ -35,7 +35,7 @@ export function SessionItem(props: Props) {
         <span
           role="button"
           onClick={handleDelete}
-          className="flex-shrink-0 text-zinc-500 hover:text-red-400 transition-colors flex items-center justify-center"
+          className="flex-shrink-0 text-text-tertiary hover:text-state-error-fg transition-colors flex items-center justify-center"
           title="Delete session"
         >
           <svg
@@ -61,7 +61,7 @@ export function SessionItem(props: Props) {
           </svg>
         </span>
       ) : session.updatedAt ? (
-        <span className="flex-shrink-0 text-[0.8461rem] text-zinc-500">
+        <span className="flex-shrink-0 text-[0.8461rem] text-text-tertiary">
           {getRelativeTime(session.updatedAt)}
         </span>
       ) : null}

@@ -38,11 +38,11 @@ function retrievalStatusLabel(status: string): string {
 
 function taskStatusColor(status: string): string {
     switch (status) {
-        case TaskStatus.Running: return 'text-blue-400';
-        case TaskStatus.Completed: return 'text-green-400';
-        case TaskStatus.Failed: return 'text-red-400';
-        case TaskStatus.Stopped: return 'text-yellow-400';
-        default: return 'text-white/60';
+        case TaskStatus.Running: return 'text-text-link';
+        case TaskStatus.Completed: return 'text-state-success-fg';
+        case TaskStatus.Failed: return 'text-state-error-fg';
+        case TaskStatus.Stopped: return 'text-state-warning-fg';
+        default: return 'text-text-primary/60';
     }
 }
 
@@ -76,7 +76,7 @@ export function TaskOutputRenderer(props: RendererProps) {
     return (
         <ToolWrapper message={props.message}>
             <ToolHeader name="TaskOutput" inProgress={!props.toolResult} className="mb-2.5">
-                <div className="text-white/60 truncate text-[0.9230rem]">task: "{description}"</div>
+                <div className="text-text-primary/60 truncate text-[0.9230rem]">task: "{description}"</div>
             </ToolHeader>
 
             {props.toolResult && output && (
@@ -85,20 +85,20 @@ export function TaskOutputRenderer(props: RendererProps) {
                         <div className="flex items-start p-2 gap-4 text-[0.8461rem] font-mono">
                             {taskType && (
                                 <div>
-                                    <span className="text-white/40">type </span>
-                                    <span className="text-white/80">{taskType}</span>
+                                    <span className="text-text-primary/40">type </span>
+                                    <span className="text-text-primary/80">{taskType}</span>
                                 </div>
                             )}
                             {taskStatus && (
                                 <div>
-                                    <span className="text-white/40">status </span>
+                                    <span className="text-text-primary/40">status </span>
                                     <span className={taskStatusColor(taskStatus)}>{taskStatus}</span>
                                 </div>
                             )}
                             {retrievalStatus && (
                                 <div>
-                                    <span className="text-white/40">retrieval </span>
-                                    <span className="text-white/80">{retrievalStatusLabel(retrievalStatus)}</span>
+                                    <span className="text-text-primary/40">retrieval </span>
+                                    <span className="text-text-primary/80">{retrievalStatusLabel(retrievalStatus)}</span>
                                 </div>
                             )}
                         </div>
@@ -106,7 +106,7 @@ export function TaskOutputRenderer(props: RendererProps) {
 
                     <LabelValue
                         label="OUT"
-                        className={hasMeta ? "border-t border-white/15" : undefined}
+                        className={hasMeta ? "border-t border-border-subtle" : undefined}
                         maxHeight="max-h-[105px]"
                     >
                         {output}

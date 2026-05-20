@@ -6,7 +6,7 @@ import claudeCodeLogo from '../../assets/claude-code-logo.svg';
 export const EmptyState = () => {
   const isMac = navigator.platform.toUpperCase().includes('MAC');
 
-  const kbdClass = "inline-flex items-center px-1.5 py-0.5 bg-zinc-700 rounded text-zinc-300 text-xs font-mono";
+  const kbdClass = "inline-flex items-center px-1.5 py-0.5 bg-surface-tooltip rounded text-text-secondary text-xs font-mono";
 
   const hints: ReactNode[] = useMemo(
     () => [
@@ -41,7 +41,7 @@ export const EmptyState = () => {
       </div>
       <div className="flex-1 flex flex-col items-center justify-center gap-5 pt-14">
         <img src={clawdSvg} alt="Clawd" width={46} />
-        <p className="text-zinc-300 text-[1rem] text-center max-w-[18rem] leading-[1.7]">{hint}</p>
+        <p className="text-text-secondary text-[1rem] text-center max-w-[18rem] leading-[1.7]">{hint}</p>
       </div>
     </div>
   );

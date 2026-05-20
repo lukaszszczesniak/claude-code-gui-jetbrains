@@ -41,12 +41,12 @@ export function ExitPlanModeRenderer(props: RendererProps) {
             )}
 
             {statusText && (
-                <div className="text-[0.9230rem] text-white/50">{statusText}</div>
+                <div className="text-[0.9230rem] text-text-primary/50">{statusText}</div>
             )}
 
             {isError && feedbackContent && (
                 <Container className="mt-1">
-                    <LabelValue label="RE:" className="border-b border-white/15" maxHeight="max-h-[60px]">
+                    <LabelValue label="RE:" className="border-b border-border-subtle" maxHeight="max-h-[60px]">
                         {feedbackContent}
                     </LabelValue>
                 </Container>

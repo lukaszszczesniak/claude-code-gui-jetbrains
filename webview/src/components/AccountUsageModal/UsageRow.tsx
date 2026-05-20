@@ -7,9 +7,9 @@ interface UsageRowProps {
 }
 
 function getBarColorClass(utilization: number): string {
-  if (utilization >= 80) return 'bg-red-500';
-  if (utilization >= 50) return 'bg-yellow-500';
-  return 'bg-blue-500';
+  if (utilization >= 80) return 'bg-state-error-fg';
+  if (utilization >= 50) return 'bg-state-warning-fg';
+  return 'bg-accent-primary';
 }
 
 export function UsageRow({ label, utilization, resetsAt }: UsageRowProps) {
@@ -17,17 +17,17 @@ export function UsageRow({ label, utilization, resetsAt }: UsageRowProps) {
   return (
     <div className="mb-3">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[0.9230rem] text-zinc-200">{label}</span>
-        <span className="text-[0.9230rem] text-zinc-200">{Math.round(clamped)}%</span>
+        <span className="text-[0.9230rem] text-text-primary">{label}</span>
+        <span className="text-[0.9230rem] text-text-primary">{Math.round(clamped)}%</span>
       </div>
-      <div className="w-full h-1.5 bg-zinc-700/60 rounded-full overflow-hidden mb-1.5">
+      <div className="w-full h-1.5 bg-surface-tooltip/60 rounded-full overflow-hidden mb-1.5">
         <div
           className={`h-full rounded-full transition-all duration-300 ${getBarColorClass(clamped)}`}
           style={{ width: `${clamped}%` }}
         />
       </div>
       {resetsAt && (
-        <div className="flex items-center justify-between text-[0.8461rem] text-zinc-500 hover:text-white transition-all">
+        <div className="flex items-center justify-between text-[0.8461rem] text-text-tertiary hover:text-text-primary transition-all">
           <span className="">{formatTimeUntil(resetsAt)}</span>
           <span className="">{formatExactTime(resetsAt)}</span>
         </div>

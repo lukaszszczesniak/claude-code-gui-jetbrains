@@ -19,7 +19,7 @@ export function AdvancedSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">{meta.label}</h2>
+      <h2 className="text-xl font-semibold text-text-primary mb-6">{meta.label}</h2>
 
       <SettingSection title="Debugging">
         <SettingRow
@@ -28,7 +28,7 @@ export function AdvancedSettings() {
         >
           {isDebugNotSet ? (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-500 italic">Not set (use global)</span>
+              <span className="text-xs text-text-tertiary italic">Not set (use global)</span>
               <ToggleSwitch
                 checked={false}
                 onChange={(checked) => updateSetting(SettingKey.DEBUG_MODE, checked)}
@@ -57,12 +57,12 @@ export function AdvancedSettings() {
               }
               updateSetting(SettingKey.LOG_LEVEL, value as LogLevel);
             }}
-            className={`bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm ${
-              isLogLevelNotSet ? 'text-zinc-500 italic' : 'text-zinc-100'
+            className={`bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm ${
+              isLogLevelNotSet ? 'text-text-tertiary italic' : 'text-text-primary'
             }`}
           >
             {scope === 'project' && (
-              <option value={NOT_SET_VALUE} className="text-zinc-500">
+              <option value={NOT_SET_VALUE} className="text-text-tertiary">
                 Not set (use global)
               </option>
             )}

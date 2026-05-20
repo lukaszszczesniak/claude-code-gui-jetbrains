@@ -24,7 +24,7 @@ export function DropdownMenu(props: Props) {
   } = props;
 
   return (
-    <div className="absolute left-0 top-full mt-1 w-[23rem] bg-zinc-900 border border-zinc-700 rounded-md shadow-xl overflow-hidden z-50">
+    <div className="absolute left-0 top-full mt-1 w-[23rem] bg-surface-raised border border-border-default rounded-md shadow-xl overflow-hidden z-50">
       <SearchInput value={searchQuery} onChange={onSearchChange} />
 
       {filteredSessionsCount > 0 ? (
@@ -35,7 +35,7 @@ export function DropdownMenu(props: Props) {
           onDeleteSession={onDeleteSession}
         />
       ) : (
-        <div className="px-2.5 py-3 text-xs text-zinc-500 text-center">
+        <div className="px-2.5 py-3 text-xs text-text-tertiary text-center">
           {searchQuery.trim() ? 'No matching sessions' : 'No sessions yet'}
         </div>
       )}

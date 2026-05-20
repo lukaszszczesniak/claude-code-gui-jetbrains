@@ -53,22 +53,22 @@ function formatExactTime(isoString: string): string {
 }
 
 function getBarColorClass(utilization: number): string {
-  if (utilization >= 80) return 'bg-red-500';
-  if (utilization >= 50) return 'bg-yellow-500';
-  return 'bg-blue-500';
+  if (utilization >= 80) return 'bg-state-error-fg';
+  if (utilization >= 50) return 'bg-state-warning-fg';
+  return 'bg-accent-primary';
 }
 
 export function UsageMeter({ label, utilization, resetsAt }: UsageMeterProps) {
   const clamped = Math.min(100, Math.max(0, utilization));
 
   return (
-    <div className="py-3 border-b border-zinc-800 last:border-b-0">
+    <div className="py-3 border-b border-border-default last:border-b-0">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-zinc-200">{label}</span>
-        <span className="text-sm text-zinc-400">{Math.round(clamped)}%</span>
+        <span className="text-sm text-text-primary">{label}</span>
+        <span className="text-sm text-text-secondary">{Math.round(clamped)}%</span>
       </div>
 
-      <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+      <div className="w-full h-1 bg-surface-overlay rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-300 ${getBarColorClass(clamped)}`}
           style={{ width: `${clamped}%` }}
@@ -77,8 +77,8 @@ export function UsageMeter({ label, utilization, resetsAt }: UsageMeterProps) {
 
       {resetsAt && (
         <div className="flex items-center justify-between mt-1.5">
-          <p className="text-xs text-zinc-500">{formatTimeUntil(resetsAt)}</p>
-          <p className="text-xs text-zinc-600">{formatExactTime(resetsAt)}</p>
+          <p className="text-xs text-text-tertiary">{formatTimeUntil(resetsAt)}</p>
+          <p className="text-xs text-text-disabled">{formatExactTime(resetsAt)}</p>
         </div>
       )}
     </div>

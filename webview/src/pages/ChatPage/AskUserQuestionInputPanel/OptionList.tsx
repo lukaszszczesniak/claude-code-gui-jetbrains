@@ -59,7 +59,7 @@ export const OptionList = (props: Props) => {
             onKeyDown={onOtherKeyDown}
             placeholder="Type your answer..."
             rows={1}
-            className="w-full px-3 py-1.5 rounded bg-zinc-800 border border-zinc-600 text-zinc-200 text-sm placeholder-zinc-500 focus:outline-none focus:border-blue-500/50 resize-none"
+            className="w-full px-3 py-1.5 rounded bg-surface-overlay border border-border-strong text-text-primary text-sm placeholder-text-tertiary focus:outline-none focus:border-border-focus/50 resize-none"
           />
         </div>
       )}

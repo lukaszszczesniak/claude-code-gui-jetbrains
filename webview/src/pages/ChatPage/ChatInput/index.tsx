@@ -348,9 +348,9 @@ export function ChatInput() {
       {/* 메인 인풋 컨테이너 */}
       <div
         className={`
-          relative rounded-lg border bg-[#1e1e21]
+          relative rounded-lg border bg-surface-raised
           transition-colors duration-150
-          ${isDragOver ? 'border-blue-500 bg-blue-500/5' : isFocused && mode !== 'plan' ? modeConfig.borderColor : 'border-zinc-700'}
+          ${isDragOver ? 'border-border-focus bg-accent-primary/5' : isFocused && mode !== 'plan' ? modeConfig.borderColor : 'border-border-default'}
         `}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -404,7 +404,7 @@ export function ChatInput() {
             placeholder={isStreaming ? "Queue another message..." : "⌘ Esc to focus or unfocus Claude"}
             disabled={disabled}
             rows={1}
-            className="w-full px-3 cursor-text resize-none bg-transparent text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none disabled:opacity-50"
+            className="w-full px-3 cursor-text resize-none bg-transparent text-sm text-text-secondary placeholder-text-disabled focus:outline-none disabled:opacity-50"
             style={{ minHeight: '20px', maxHeight: '200px' }}
           />
         </div>
@@ -417,13 +417,13 @@ export function ChatInput() {
 
         {/* 에러 메시지 */}
         {attachmentError && (
-          <div className="px-3 pb-1.5 text-xs text-red-400">
+          <div className="px-3 pb-1.5 text-xs text-state-error-fg">
             {attachmentError}
           </div>
         )}
 
         {/* 구분선 */}
-        <div className="border-t border-zinc-700/50" />
+        <div className="border-t border-border-subtle" />
 
         {/* 하단 바: 모드 태그 + 파일 태그 + 액션 버튼 */}
         <div className="flex items-center justify-between px-[5px] py-[3px] h-[35px]">

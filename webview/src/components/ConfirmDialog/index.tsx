@@ -42,25 +42,25 @@ export function ConfirmDialog(props: Props) {
 
   const confirmButtonClass =
     variant === 'danger'
-      ? 'px-4 py-2 rounded-lg text-sm font-medium bg-red-600 hover:bg-red-500 text-white transition-colors'
-      : 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors';
+      ? 'px-4 py-2 rounded-lg text-sm font-medium bg-state-error-fg hover:bg-state-error-fg text-text-inverse transition-colors'
+      : 'px-4 py-2 rounded-lg text-sm font-medium bg-accent-primary-hover hover:bg-accent-primary text-text-primary transition-colors';
 
   return (
     <Portal>
       <div
         data-testid="confirm-dialog-backdrop"
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay-scrim"
         onClick={handleBackdropClick}
       >
         <div
           role="dialog"
-          className="bg-zinc-900 border border-white/10 rounded-xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-4"
+          className="bg-surface-raised border border-border-default rounded-xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-4"
         >
-          <h2 className="text-md font-semibold text-zinc-100">{title}</h2>
-          <p className="text-sm text-zinc-400">{message}</p>
+          <h2 className="text-md font-semibold text-text-primary">{title}</h2>
+          <p className="text-sm text-text-secondary">{message}</p>
           <div className="flex justify-end gap-2 mt-2">
             <button
-              className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-surface-tooltip transition-colors"
               onClick={onCancel}
             >
               {cancelLabel}

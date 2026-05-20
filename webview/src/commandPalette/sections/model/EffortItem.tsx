@@ -8,12 +8,12 @@ const EffortDots = () => {
   if (!supportsEffort) return null;
 
   return (
-    <span className="text-zinc-400 flex items-center gap-1">
+    <span className="text-text-secondary flex items-center gap-1">
       <span className="text-[1.2307rem] font-bold tracking-tighter pb-[1px] flex">
         {Array.from({ length: def.totalDots }, (_, i) => (
           <span
             key={i}
-            className={i < def.filledDots ? 'text-zinc-300' : 'text-zinc-600'}
+            className={i < def.filledDots ? 'text-text-secondary' : 'text-text-disabled'}
           >
             {'\u2022'}
           </span>

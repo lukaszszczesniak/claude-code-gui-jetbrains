@@ -10,8 +10,8 @@ export function OptionItem(props: {
 
     const baseClass =
         "px-3 py-2 border rounded cursor-pointer transition-colors select-none";
-    const selectedClass = "border-blue-500/50 bg-blue-900/20";
-    const unselectedClass = "border-white/15 bg-zinc-800/40 hover:bg-zinc-700/50";
+    const selectedClass = "border-border-focus/50 bg-state-info-bg";
+    const unselectedClass = "border-border-subtle bg-surface-hover hover:bg-surface-tooltip/50";
     const disabledClass = "opacity-50 cursor-not-allowed";
 
     return (
@@ -23,7 +23,7 @@ export function OptionItem(props: {
                 {multiSelect ? (
                     <div
                         className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center flex-shrink-0 ${
-                            selected ? "border-blue-500 bg-blue-600" : "border-white/30"
+                            selected ? "border-border-focus bg-accent-primary-hover" : "border-border-strong"
                         }`}
                     >
                         {selected && (
@@ -41,18 +41,18 @@ export function OptionItem(props: {
                 ) : (
                     <div
                         className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center flex-shrink-0 ${
-                            selected ? "border-blue-500" : "border-white/30"
+                            selected ? "border-border-focus" : "border-border-strong"
                         }`}
                     >
                         {selected && (
-                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                            <div className="w-2 h-2 rounded-full bg-accent-primary" />
                         )}
                     </div>
                 )}
-                <span className="text-white/90 text-[1rem]">{label}</span>
+                <span className="text-text-primary/90 text-[1rem]">{label}</span>
             </div>
             {description && (
-                <div className="text-white/50 text-[0.8461rem] mt-0.5 ml-5">{description}</div>
+                <div className="text-text-primary/50 text-[0.8461rem] mt-0.5 ml-5">{description}</div>
             )}
         </div>
     );

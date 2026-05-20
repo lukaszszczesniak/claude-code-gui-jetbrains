@@ -27,18 +27,18 @@ export function AccountUsageModal({ onClose }: AccountUsageModalProps) {
   return (
     <Portal>
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-overlay-scrim"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-sm bg-zinc-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-sm bg-surface-raised border border-border-default rounded-xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4">
-          <h2 className="text-md font-semibold text-zinc-100">Account &amp; Usage</h2>
+          <h2 className="text-md font-semibold text-text-primary">Account &amp; Usage</h2>
           <button
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded text-zinc-500 hover:text-zinc-300 hover:bg-white/10 transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded text-text-tertiary hover:text-text-secondary hover:bg-surface-hover transition-colors"
           >
             <XMarkIcon className="w-4 h-4" />
           </button>

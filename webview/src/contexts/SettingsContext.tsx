@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { SettingsState, DEFAULT_SETTINGS, SettingKey } from '@/types/settings';
+import { SettingsState, DEFAULT_SETTINGS, SettingKey, ThemeMode } from '@/types/settings';
 import { useBridgeContext } from '@/contexts/BridgeContext';
 import { useWorkingDir } from '@/contexts/WorkingDirContext';
 
@@ -112,6 +112,31 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
     if (typeof fontSize === 'number' && Number.isFinite(fontSize)) {
       document.documentElement.style.fontSize = `${fontSize}px`;
     }
+  }, [settings]);
+
+  // Apply theme to <html> element. Toggles `.dark` class based on theme setting.
+  // - LIGHT: explicit light, no `.dark` class
+  // - DARK: explicit dark, `.dark` class on
+  // - SYSTEM: follow prefers-color-scheme and subscribe to changes
+  useEffect(() => {
+    const theme = settings[SettingKey.THEME];
+    const applyDark = () => document.documentElement.classList.add('dark');
+    const applyLight = () => document.documentElement.classList.remove('dark');
+
+    if (theme === ThemeMode.DARK) {
+      applyDark();
+      return;
+    }
+    if (theme === ThemeMode.LIGHT) {
+      applyLight();
+      return;
+    }
+    // SYSTEM: detect prefers-color-scheme and subscribe to changes
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.matches) applyDark(); else applyLight();
+    const handler = (e: MediaQueryListEvent) => (e.matches ? applyDark() : applyLight());
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, [settings]);
 
   // Subscribe to external settings changes from backend

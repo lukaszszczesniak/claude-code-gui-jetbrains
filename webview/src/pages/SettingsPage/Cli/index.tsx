@@ -74,7 +74,7 @@ export function CliSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">{meta.label}</h2>
+      <h2 className="text-xl font-semibold text-text-primary mb-6">{meta.label}</h2>
 
       <ScopeGuard supportedScope="global" currentScope={scope}>
         <SettingSection title="Terminal">
@@ -87,15 +87,15 @@ export function CliSettings() {
             }
           >
             {isJetBrainsEnv ? (
-              <span className="text-sm text-zinc-500">JetBrains built-in terminal</span>
+              <span className="text-sm text-text-tertiary">JetBrains built-in terminal</span>
             ) : loading ? (
-              <span className="text-sm text-zinc-500">Detecting terminals...</span>
+              <span className="text-sm text-text-tertiary">Detecting terminals...</span>
             ) : (
               <div className="flex items-center gap-2">
                 <select
                   value={selectValue}
                   onChange={(e) => handleSelectChange(e.target.value)}
-                  className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-zinc-100"
+                  className="bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm text-text-primary"
                 >
                   <option value="">System Default</option>
                   {terminals.map((t) => (
@@ -111,7 +111,7 @@ export function CliSettings() {
                     value={customInput}
                     onChange={(e) => handleCustomInput(e.target.value)}
                     placeholder="e.g., Kitty"
-                    className="w-40 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500"
+                    className="w-40 bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm text-text-primary placeholder-text-tertiary"
                   />
                 )}
               </div>
@@ -128,7 +128,7 @@ export function CliSettings() {
           <select
             value={claudeSettings.model ? toModelAlias(claudeSettings.model) : ''}
             onChange={(e) => void updateClaudeSetting('model', e.target.value || null)}
-            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-zinc-100"
+            className="bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm text-text-primary"
           >
             {availableModels.length === 0 ? (
               <option value="">Default (recommended)</option>
@@ -153,10 +153,10 @@ export function CliSettings() {
                 value={settings[SettingKey.CLI_PATH] || ''}
                 onChange={(e) => updateSetting(SettingKey.CLI_PATH, e.target.value || null)}
                 placeholder="Auto-detect"
-                className="w-64 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500"
+                className="w-64 bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm text-text-primary placeholder-text-tertiary"
               />
               {detectedCliPath && !settings[SettingKey.CLI_PATH] && (
-                <span className="text-xs text-zinc-500 truncate max-w-64" title={detectedCliPath}>
+                <span className="text-xs text-text-tertiary truncate max-w-64" title={detectedCliPath}>
                   {detectedCliPath}
                 </span>
               )}

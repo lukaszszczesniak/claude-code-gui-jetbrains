@@ -18,9 +18,8 @@ export function AppearanceSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">
+      <h2 className="text-xl font-semibold text-text-primary mb-6">
         {meta.label}
-        <span className="ml-2 text-sm font-normal text-zinc-500">Coming Soon</span>
       </h2>
 
       <SettingSection title="Theme">
@@ -38,12 +37,12 @@ export function AppearanceSettings() {
               }
               updateSetting(SettingKey.THEME, value as ThemeMode);
             }}
-            className={`bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm ${
-              isThemeNotSet ? 'text-zinc-500 italic' : 'text-zinc-100'
+            className={`bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm ${
+              isThemeNotSet ? 'text-text-tertiary italic' : 'text-text-primary'
             }`}
           >
             {scope === 'project' && (
-              <option value={NOT_SET_VALUE} className="text-zinc-500">
+              <option value={NOT_SET_VALUE} className="text-text-tertiary">
                 Not set (use global)
               </option>
             )}
@@ -73,8 +72,8 @@ export function AppearanceSettings() {
               }
               updateSetting(SettingKey.FONT_SIZE, parseInt(value, 10));
             }}
-            className={`w-20 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm ${
-              isFontSizeNotSet ? 'text-zinc-500 italic' : 'text-zinc-100'
+            className={`w-20 bg-surface-overlay border border-border-default rounded-lg px-3 py-1.5 text-sm ${
+              isFontSizeNotSet ? 'text-text-tertiary italic' : 'text-text-primary'
             }`}
           />
         </SettingRow>

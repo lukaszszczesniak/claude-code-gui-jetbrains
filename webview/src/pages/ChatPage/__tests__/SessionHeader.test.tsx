@@ -236,11 +236,11 @@ describe('SessionHeader', () => {
     // 현재 세션 확인
     const sessionButtons = screen.getAllByRole('button');
     const currentSessionButton = sessionButtons.find(
-      button => button.textContent?.includes('First Chat') && button.classList.contains('bg-zinc-700/70')
+      button => button.textContent?.includes('First Chat') && button.classList.contains('bg-surface-tooltip/70')
     );
 
     expect(currentSessionButton).toBeInTheDocument();
-    expect(currentSessionButton).toHaveClass('text-zinc-100', 'bg-zinc-700/70');
+    expect(currentSessionButton).toHaveClass('text-text-primary', 'bg-surface-tooltip/70');
   });
 
   it('비활성 세션은 다른 스타일로 표시', async () => {
@@ -256,8 +256,8 @@ describe('SessionHeader', () => {
       button => button.textContent?.includes('Second Chat')
     );
 
-    expect(inactiveSessionButton).toHaveClass('text-zinc-400');
-    expect(inactiveSessionButton).not.toHaveClass('bg-zinc-700/70');
+    expect(inactiveSessionButton).toHaveClass('text-text-secondary');
+    expect(inactiveSessionButton).not.toHaveClass('bg-surface-tooltip/70');
   });
 
   it('세션 제목이 없을 때 "Past Conversations" 표시', () => {

@@ -14,7 +14,7 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
   const showScopeTabs = meta?.scopeSupport === 'both';
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950">
+    <div className="flex flex-col h-full bg-surface-base">
       <SettingsHeader />
       <div className="flex flex-1 overflow-hidden">
         <SettingsSidebar />

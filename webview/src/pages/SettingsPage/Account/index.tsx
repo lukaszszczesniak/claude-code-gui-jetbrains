@@ -9,7 +9,7 @@ export function AccountSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">{meta.label}</h2>
+      <h2 className="text-xl font-semibold text-text-primary mb-6">{meta.label}</h2>
 
       <SettingSection title="Profile">
         {accountLoading && !accountData ? (

@@ -10,7 +10,7 @@ export function SettingsButton() {
   return (
     <button
       onClick={openSettings}
-      className="p-1 rounded transition-colors text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+      className="p-1 rounded transition-colors text-text-secondary hover:text-text-primary hover:bg-surface-hover"
       title={settingsMeta.label}
     >
       <Cog6ToothIcon className="w-4 h-4" />

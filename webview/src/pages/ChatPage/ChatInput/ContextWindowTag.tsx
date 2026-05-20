@@ -24,15 +24,15 @@ export function ContextWindowTag(props: Props) {
       placement="top"
       render={(attrs) => (
         <div
-          className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-xs text-zinc-200 shadow-lg max-w-[240px]"
+          className="bg-surface-overlay border border-border-default rounded-md px-3 py-2 text-xs text-text-primary shadow-lg max-w-[240px]"
           {...attrs}
         >
           <p>{remaining}% of context remaining until auto-compact.</p>
-          <p className="text-zinc-400 mt-1 text-[0.7692rem]">
+          <p className="text-text-secondary mt-1 text-[0.7692rem]">
             {totalTokens.toLocaleString()} tokens used
           </p>
           {isClickable && (
-            <p className="text-zinc-300 mt-1 text-[0.7692rem]">Click to compact now.</p>
+            <p className="text-text-secondary mt-1 text-[0.7692rem]">Click to compact now.</p>
           )}
         </div>
       )}

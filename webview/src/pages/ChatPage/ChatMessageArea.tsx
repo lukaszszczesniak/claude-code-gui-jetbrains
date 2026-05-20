@@ -172,7 +172,7 @@ export function ChatMessageArea(props: Props) {
     if (isJetBrains()) {
       return (
         <div className="h-full flex items-center justify-center">
-          <p className="text-zinc-500 text-sm">Loading working directory...</p>
+          <p className="text-text-tertiary text-sm">Loading working directory...</p>
         </div>
       );
     }

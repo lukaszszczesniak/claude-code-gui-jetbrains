@@ -22,7 +22,7 @@ export function SkillRenderer(props: RendererProps) {
                 <ToolHeader name={skillName} inProgress={!props.toolResult}>
                     <button
                         type="button"
-                        className="text-white/60 hover:text-white/80 cursor-pointer select-none hover:underline"
+                        className="text-text-primary/60 hover:text-text-primary/80 cursor-pointer select-none hover:underline"
                         onClick={() => childMessages.length && setExpanded(v => !v)}
                     >
                         skill

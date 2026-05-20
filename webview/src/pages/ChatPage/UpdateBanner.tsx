@@ -23,23 +23,23 @@ export function UpdateBanner() {
   const title = latestNotes ? extractTitle(latestVersion, latestNotes) : '';
 
   return (
-      <div className="w-full z-20 border-t border-b border-blue-800 bg-blue-900/40 px-4 py-1.5 flex items-center">
-        <span className="text-white text-[0.8461rem]">
+      <div className="w-full z-20 border-t border-b border-state-info-border bg-state-info-bg px-4 py-1.5 flex items-center">
+        <span className="text-text-primary text-[0.8461rem]">
           <strong>v{latestVersion} released!</strong>
-          {title && <span className="ml-2 text-blue-200 text-[0.7692rem]">{title}</span>}
+          {title && <span className="ml-2 text-text-link text-[0.7692rem]">{title}</span>}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
-          {requiresRestart && <span className="ml-2 text-blue-200 text-[0.7692rem]">IDE restart required</span>}
+          {requiresRestart && <span className="ml-2 text-text-link text-[0.7692rem]">IDE restart required</span>}
           <button
               onClick={handleUpdate}
-              className="px-3 py-1 rounded text-[0.7692rem] font-medium bg-white text-blue-700 hover:bg-blue-50 transition-colors"
+              className="px-3 py-1 rounded text-[0.7692rem] font-medium bg-surface-base text-text-link hover:bg-state-info-bg transition-colors"
           >
             Update
           </button>
           <button
               onClick={skip}
-              className="px-3 py-1 rounded text-[0.7692rem] font-medium text-blue-100 hover:text-white hover:bg-blue-500 transition-colors"
+              className="px-3 py-1 rounded text-[0.7692rem] font-medium text-text-link hover:text-text-primary hover:bg-accent-primary transition-colors"
           >
             Skip
           </button>

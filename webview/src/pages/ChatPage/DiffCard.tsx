@@ -48,11 +48,11 @@ export function DiffCard({ diff, onApply, onReject, onOpenInIDE }: DiffCardProps
   const getOperationColor = () => {
     switch (diff.summary.operation) {
       case 'create':
-        return 'text-green-400';
+        return 'text-state-success-fg';
       case 'modify':
-        return 'text-blue-400';
+        return 'text-text-link';
       case 'delete':
-        return 'text-red-400';
+        return 'text-state-error-fg';
     }
   };
 
@@ -60,19 +60,19 @@ export function DiffCard({ diff, onApply, onReject, onOpenInIDE }: DiffCardProps
     switch (diff.status) {
       case DiffStatus.Pending:
         return (
-          <span className="px-2 py-0.5 text-xs rounded bg-yellow-900/30 text-yellow-400">
+          <span className="px-2 py-0.5 text-xs rounded bg-state-warning-bg text-state-warning-fg">
             Pending
           </span>
         );
       case DiffStatus.Applied:
         return (
-          <span className="px-2 py-0.5 text-xs rounded bg-green-900/30 text-green-400">
+          <span className="px-2 py-0.5 text-xs rounded bg-state-success-bg text-state-success-fg">
             Applied
           </span>
         );
       case DiffStatus.Rejected:
         return (
-          <span className="px-2 py-0.5 text-xs rounded bg-red-900/30 text-red-400">
+          <span className="px-2 py-0.5 text-xs rounded bg-state-error-bg text-state-error-fg">
             Rejected
           </span>
         );
@@ -80,13 +80,13 @@ export function DiffCard({ diff, onApply, onReject, onOpenInIDE }: DiffCardProps
   };
 
   return (
-    <div className="rounded-lg border border-zinc-700 bg-zinc-900 overflow-hidden">
+    <div className="rounded-lg border border-border-default bg-surface-raised overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-zinc-700 bg-zinc-800/50">
+      <div className="px-4 py-3 flex items-center justify-between border-b border-border-default bg-surface-hover">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-zinc-400 hover:text-zinc-200 transition-colors flex-shrink-0"
+            className="text-text-secondary hover:text-text-primary transition-colors flex-shrink-0"
             aria-label={isExpanded ? 'Collapse' : 'Expand'}
           >
             <svg
@@ -108,11 +108,11 @@ export function DiffCard({ diff, onApply, onReject, onOpenInIDE }: DiffCardProps
               <span className={`text-xs font-medium ${getOperationColor()}`}>
                 {getOperationLabel()}
               </span>
-              <span className="text-sm font-mono text-zinc-300 truncate">
+              <span className="text-sm font-mono text-text-secondary truncate">
                 {diff.filePath}
               </span>
             </div>
-            <div className="text-xs text-zinc-500 mt-0.5">
+            <div className="text-xs text-text-tertiary mt-0.5">
               +{diff.summary.additions} -{diff.summary.deletions}
             </div>
           </div>
@@ -125,7 +125,7 @@ export function DiffCard({ diff, onApply, onReject, onOpenInIDE }: DiffCardProps
                 <button
                   onClick={handleOpenInIDE}
                   disabled={isApplying || isOpeningDiff}
-                  className="px-3 py-1 text-sm rounded bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 text-sm rounded bg-accent-primary-hover hover:bg-accent-primary-pressed text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Open in IDE diff viewer"
                 >
                   {isOpeningDiff ? 'Opening...' : 'Open in IDE'}
@@ -134,14 +134,14 @@ export function DiffCard({ diff, onApply, onReject, onOpenInIDE }: DiffCardProps
               <button
                 onClick={handleApply}
                 disabled={isApplying || isOpeningDiff}
-                className="px-3 py-1 text-sm rounded bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 text-sm rounded bg-state-success-fg hover:bg-state-success-fg text-text-inverse transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isApplying ? 'Applying...' : 'Apply'}
               </button>
               <button
                 onClick={() => onReject(diff.id)}
                 disabled={isApplying || isOpeningDiff}
-                className="px-3 py-1 text-sm rounded bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 text-sm rounded bg-surface-tooltip hover:bg-surface-pressed text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Reject
               </button>
@@ -152,7 +152,7 @@ export function DiffCard({ diff, onApply, onReject, onOpenInIDE }: DiffCardProps
 
       {/* Diff Content */}
       {isExpanded && (
-        <div className="p-4 bg-zinc-900">
+        <div className="p-4 bg-surface-raised">
           <DiffViewer filePath={diff.filePath} diffText={diff.diff} />
         </div>
       )}

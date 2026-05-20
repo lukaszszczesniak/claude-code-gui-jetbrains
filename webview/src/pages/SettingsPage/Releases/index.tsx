@@ -124,12 +124,12 @@ function ReleasesSkeleton() {
   return (
     <div className="space-y-2">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="bg-zinc-900 rounded-lg border border-zinc-800 p-4">
+        <div key={i} className="bg-surface-raised rounded-lg border border-border-default p-4">
           <div className="flex items-center gap-2">
-            <div className="h-4 w-4 bg-zinc-800 rounded animate-pulse" />
-            <div className="h-5 w-16 bg-zinc-800 rounded animate-pulse" />
-            <div className="h-4 w-48 bg-zinc-800 rounded animate-pulse" />
-            <div className="h-4 w-32 bg-zinc-800 rounded animate-pulse" />
+            <div className="h-4 w-4 bg-surface-overlay rounded animate-pulse" />
+            <div className="h-5 w-16 bg-surface-overlay rounded animate-pulse" />
+            <div className="h-4 w-48 bg-surface-overlay rounded animate-pulse" />
+            <div className="h-4 w-32 bg-surface-overlay rounded animate-pulse" />
           </div>
         </div>
       ))}
@@ -152,43 +152,43 @@ function ReleaseAccordion(props: ReleaseAccordionProps) {
   const body = useMemo(() => rawBody ? sanitizeReleaseHtml(rawBody) : '', [rawBody]);
 
   return (
-    <div className="bg-zinc-900 rounded-lg border border-zinc-800">
+    <div className="bg-surface-raised rounded-lg border border-border-default">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex flex-col gap-1 px-4 py-3 text-left hover:bg-zinc-800/50 transition-colors rounded-lg"
+        className="w-full flex flex-col gap-1 px-4 py-3 text-left hover:bg-surface-hover transition-colors rounded-lg"
       >
         <div className="flex items-center gap-2 w-full">
           <ChevronRightIcon
-            className={`w-4 h-4 text-zinc-500 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+            className={`w-4 h-4 text-text-tertiary shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`}
           />
-          <span className="text-sm font-semibold text-zinc-100 shrink-0">
+          <span className="text-sm font-semibold text-text-primary shrink-0">
             v{update.version}
           </span>
-          <span className="text-xs text-zinc-500 shrink-0 ml-auto">
+          <span className="text-xs text-text-tertiary shrink-0 ml-auto">
             {formatDate(update.cdate)}
           </span>
           {isCurrent && (
-            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-zinc-700 text-zinc-300 shrink-0">
+            <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-surface-tooltip text-text-secondary shrink-0">
               Current
             </span>
           )}
         </div>
         {title && (
-          <span className="text-sm text-zinc-400 pl-6">{title}</span>
+          <span className="text-sm text-text-secondary pl-6">{title}</span>
         )}
       </button>
       {isOpen && (
         <div className="px-4 pb-4 pl-10">
           {body ? (
             <div
-              className="text-sm text-zinc-400 prose prose-invert prose-sm max-w-none
+              className="text-sm text-text-secondary prose prose-invert prose-sm max-w-none
                 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-0.5
-                [&_h1]:text-zinc-200 [&_h2]:text-zinc-200 [&_h3]:text-zinc-300
-                [&_a]:text-blue-400 [&_a:hover]:text-blue-300"
+                [&_h1]:text-text-primary [&_h2]:text-text-primary [&_h3]:text-text-secondary
+                [&_a]:text-text-link [&_a:hover]:text-text-link"
               dangerouslySetInnerHTML={{ __html: body }}
             />
           ) : (
-            <p className="text-sm text-zinc-600 italic">No release notes</p>
+            <p className="text-sm text-text-disabled italic">No release notes</p>
           )}
         </div>
       )}
@@ -213,15 +213,15 @@ export function ReleasesSettings() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-zinc-100">{meta.label}</h2>
+        <h2 className="text-xl font-semibold text-text-primary">{meta.label}</h2>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-zinc-400">v{pluginVersion}</span>
+          <span className="text-sm text-text-secondary">v{pluginVersion}</span>
           {hasNewVersion && (
             <div className="flex flex-col items-end gap-1">
-              {requiresRestart && <span className="text-xs text-zinc-400">IDE restart required</span>}
+              {requiresRestart && <span className="text-xs text-text-secondary">IDE restart required</span>}
               <button
                 onClick={handleUpdate}
-                className="px-3 py-1.5 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                className="px-3 py-1.5 rounded-md text-sm font-medium bg-accent-primary-hover hover:bg-accent-primary text-text-primary transition-colors"
               >
                 Update to v{latestUpdate.version}
               </button>
@@ -231,7 +231,7 @@ export function ReleasesSettings() {
       </div>
 
       {error && (
-        <div className="mb-6 p-3 bg-red-900/20 border border-red-800/50 rounded-lg text-sm text-red-400">
+        <div className="mb-6 p-3 bg-state-error-bg border border-state-error-border rounded-lg text-sm text-state-error-fg">
           {error}
         </div>
       )}
@@ -250,14 +250,14 @@ export function ReleasesSettings() {
           ))}
         </div>
       ) : !isLoading ? (
-        <p className="text-sm text-zinc-500">No releases found.</p>
+        <p className="text-sm text-text-tertiary">No releases found.</p>
       ) : null}
 
-      <div className="flex items-center gap-2 text-xs text-zinc-500 mt-4">
+      <div className="flex items-center gap-2 text-xs text-text-tertiary mt-4">
         <button
           onClick={refresh}
           disabled={isLoading}
-          className="p-1 rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
+          className="p-1 rounded hover:bg-surface-hover transition-colors disabled:opacity-50"
           title="Refresh"
         >
           <ArrowPathIcon className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />

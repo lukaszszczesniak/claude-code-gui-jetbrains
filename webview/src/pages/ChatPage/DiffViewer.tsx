@@ -13,7 +13,7 @@ export function DiffViewer({ diffText }: DiffViewerProps) {
 
     if (!file) {
       return (
-        <div className="text-zinc-500 text-sm py-4">
+        <div className="text-text-tertiary text-sm py-4">
           No diff available
         </div>
       );
@@ -39,7 +39,7 @@ export function DiffViewer({ diffText }: DiffViewerProps) {
     );
   } catch (error) {
     return (
-      <div className="text-red-400 text-sm py-4">
+      <div className="text-state-error-fg text-sm py-4">
         Failed to parse diff: {error instanceof Error ? error.message : 'Unknown error'}
       </div>
     );

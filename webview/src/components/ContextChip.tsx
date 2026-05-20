@@ -62,14 +62,14 @@ export function ContextChip({ context, onRemove }: ContextChipProps) {
   const getContextTypeIcon = () => {
     if (context.type === ContextType.Selection) {
       return (
-        <svg className="w-3 h-3 text-blue-400" viewBox="0 0 16 16" fill="currentColor">
+        <svg className="w-3 h-3 text-text-link" viewBox="0 0 16 16" fill="currentColor">
           <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z" />
         </svg>
       );
     }
     if (context.type === 'active') {
       return (
-        <svg className="w-3 h-3 text-green-400" viewBox="0 0 16 16" fill="currentColor">
+        <svg className="w-3 h-3 text-state-success-fg" viewBox="0 0 16 16" fill="currentColor">
           <circle cx="8" cy="8" r="3" />
         </svg>
       );
@@ -78,20 +78,20 @@ export function ContextChip({ context, onRemove }: ContextChipProps) {
   };
 
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-zinc-800/80 border border-zinc-700/50 rounded-lg hover:border-zinc-600/50 transition-colors group">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-surface-hover border border-border-default/50 rounded-lg hover:border-border-strong/50 transition-colors group">
       <div className="flex items-center gap-1.5">
         {getContextTypeIcon()}
         {getFileIcon(context.path)}
-        <span className="text-xs text-zinc-300 font-mono max-w-[200px] truncate">
+        <span className="text-xs text-text-secondary font-mono max-w-[200px] truncate">
           {getContextLabel()}
         </span>
       </div>
       <button
         onClick={() => onRemove(context.id)}
-        className="ml-1 p-0.5 rounded hover:bg-zinc-700/50 transition-colors opacity-0 group-hover:opacity-100"
+        className="ml-1 p-0.5 rounded hover:bg-surface-tooltip/50 transition-colors opacity-0 group-hover:opacity-100"
         aria-label="Remove context"
       >
-        <svg className="w-3 h-3 text-zinc-400 hover:text-zinc-200" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <svg className="w-3 h-3 text-text-secondary hover:text-text-primary" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M4 4l8 8M12 4l-8 8" />
         </svg>
       </button>

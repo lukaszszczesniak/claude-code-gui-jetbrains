@@ -96,19 +96,19 @@ export const CommandPalettePanel: React.FC<CommandPalettePanelProps> = ({
 
       <div className="text-[0.8461rem] flex items-center justify-between px-3 pt-2 pb-3 -mt-2.5">
         <div className="flex items-center gap-3">
-          <a className="text-zinc-500 underline hover:text-zinc-300" href="https://github.com/anthropics/claude-code/issues" target="_blank">
+          <a className="text-text-tertiary underline hover:text-text-secondary" href="https://github.com/anthropics/claude-code/issues" target="_blank">
             Report a problem
           </a>
           <button
             type="button"
             onClick={handleRefresh}
             disabled={refreshing}
-            className="text-zinc-500 underline hover:text-zinc-300 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="text-text-tertiary underline hover:text-text-secondary disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {refreshing ? 'Reloading…' : 'Reload commands'}
           </button>
         </div>
-        <div className="text-zinc-400/80">
+        <div className="text-text-secondary/80">
           {cliVersion ? `v${pluginVersion} · Claude Code ${cliVersion}` : `v${pluginVersion}`}
         </div>
       </div>

@@ -6,7 +6,7 @@ export const DefaultErrorBanner = (props: Props) => {
     const { error } = props;
 
     return (
-        <div className="mx-4 my-2 px-3 py-2 rounded-md bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+        <div className="mx-4 my-2 px-3 py-2 rounded-md bg-state-error-fg/10 border border-state-error-border text-state-error-fg text-xs">
             {error.message}
         </div>
     );

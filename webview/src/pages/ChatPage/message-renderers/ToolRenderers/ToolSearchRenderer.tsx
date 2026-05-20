@@ -26,7 +26,7 @@ export function ToolSearchRenderer(props: RendererProps) {
     return (
         <ToolWrapper message={props.message}>
             <ToolHeader name="ToolSearch" inProgress={!props.toolResult} className="mb-2.5">
-                <div className="text-white/60 truncate">{query}</div>
+                <div className="text-text-primary/60 truncate">{query}</div>
             </ToolHeader>
 
             {props.toolResult && matches.length > 0 && (

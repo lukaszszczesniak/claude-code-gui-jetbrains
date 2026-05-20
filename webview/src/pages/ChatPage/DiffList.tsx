@@ -34,9 +34,9 @@ export function DiffList({
   if (diffs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4">
-        <div className="text-zinc-500 text-center">
+        <div className="text-text-tertiary text-center">
           <svg
-            className="w-16 h-16 mx-auto mb-4 text-zinc-600"
+            className="w-16 h-16 mx-auto mb-4 text-text-disabled"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -59,8 +59,8 @@ export function DiffList({
     <div className="flex flex-col h-full">
       {/* Summary Header */}
       {hasPending && (
-        <div className="px-4 py-3 border-b border-zinc-700 bg-zinc-800/50 flex items-center justify-between">
-          <div className="text-sm text-zinc-300">
+        <div className="px-4 py-3 border-b border-border-default bg-surface-hover flex items-center justify-between">
+          <div className="text-sm text-text-secondary">
             <span className="font-medium">{pendingDiffs.length}</span> pending change
             {pendingDiffs.length !== 1 ? 's' : ''}
           </div>
@@ -68,14 +68,14 @@ export function DiffList({
             <button
               onClick={handleApplyAll}
               disabled={isApplyingAll}
-              className="px-3 py-1.5 text-sm rounded bg-green-600 hover:bg-green-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm rounded bg-state-success-fg hover:bg-state-success-fg text-text-inverse transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isApplyingAll ? 'Applying All...' : 'Apply All'}
             </button>
             <button
               onClick={onRejectAll}
               disabled={isApplyingAll}
-              className="px-3 py-1.5 text-sm rounded bg-zinc-700 hover:bg-zinc-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1.5 text-sm rounded bg-surface-tooltip hover:bg-surface-pressed text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Reject All
             </button>

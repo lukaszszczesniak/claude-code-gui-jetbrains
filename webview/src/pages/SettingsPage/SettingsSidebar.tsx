@@ -7,7 +7,7 @@ export function SettingsSidebar() {
   const { hasUpdate } = useUpdateAvailable();
 
   return (
-    <nav className="w-48 flex-shrink-0 border-r border-zinc-800 py-4">
+    <nav className="w-48 flex-shrink-0 border-r border-border-default py-4">
       <ul className="space-y-1 px-2">
         {SETTINGS_SUB_ROUTES.map((subRoute) => {
           const meta = ROUTE_META[subRoute];
@@ -22,14 +22,14 @@ export function SettingsSidebar() {
                 className={`
                   w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors
                   ${isActive
-                    ? 'bg-zinc-800 text-zinc-100'
-                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'}
+                    ? 'bg-surface-overlay text-text-primary'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'}
                 `}
               >
                 {Icon && <Icon className="w-4 h-4" />}
                 <span>{meta.label}</span>
                 {showBadge && (
-                  <span className="ml-auto w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="ml-auto w-2 h-2 rounded-full bg-accent-primary" />
                 )}
               </button>
             </li>

@@ -17,8 +17,8 @@ export const TabBar = (props: Props) => {
           onClick={() => onTabClick(idx)}
           className={`p-1 text-[0.9230rem] font-medium whitespace-nowrap border-b-2 transition-colors ${
             idx === currentIndex
-              ? 'text-zinc-200 border-blue-500'
-              : 'text-zinc-500 border-transparent hover:text-zinc-400'
+              ? 'text-text-primary border-border-focus'
+              : 'text-text-tertiary border-transparent hover:text-text-secondary'
           }`}
         >
           {q.header || q.question}

@@ -23,10 +23,10 @@ export function ProjectButton() {
       onClick={isSessionActive ? undefined : handleClick}
       disabled={isSessionActive}
       className={[
-        'p-1 rounded transition-colors text-zinc-400',
+        'p-1 rounded transition-colors text-text-secondary',
         isSessionActive
           ? 'opacity-50 cursor-not-allowed'
-          : 'hover:text-zinc-100 hover:bg-zinc-800',
+          : 'hover:text-text-primary hover:bg-surface-hover',
       ].join(' ')}
       title={isSessionActive ? 'Cannot switch project while session is active' : 'Switch Project'}
     >

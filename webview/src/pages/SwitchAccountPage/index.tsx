@@ -63,16 +63,16 @@ export function SwitchAccountPage(props: Props) {
   };
 
   return (
-    <div className={`flex flex-col h-full bg-[#1a1a1a] ${className ?? ''}`}>
-      <header className="flex items-center gap-2 px-2 py-1 border-b border-zinc-800">
+    <div className={`flex flex-col h-full bg-surface-base ${className ?? ''}`}>
+      <header className="flex items-center gap-2 px-2 py-1 border-b border-border-default">
         <button
           onClick={() => navigate(Route.NEW_SESSION)}
-          className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+          className="p-1 rounded text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors"
           title={Label.BACK}
         >
           <ArrowLeftIcon className="w-4 h-4" />
         </button>
-        <h1 className="text-sm font-semibold text-zinc-100">{meta.label}</h1>
+        <h1 className="text-sm font-semibold text-text-primary">{meta.label}</h1>
       </header>
 
       <div className="flex-1 overflow-y-auto flex items-center justify-center">
@@ -84,16 +84,16 @@ export function SwitchAccountPage(props: Props) {
             draggable={false}
           />
 
-          <p className="text-sm text-zinc-300 leading-relaxed">
+          <p className="text-sm text-text-secondary leading-relaxed">
             Claude Code can be used with your Claude subscription or billed based on API usage through your Console account.
           </p>
 
-          <p className="text-sm text-zinc-300 mt-4">
+          <p className="text-sm text-text-secondary mt-4">
             How do you want to log in?
           </p>
 
           {error !== null && (
-            <p className="text-xs text-red-400 mt-3 px-3 py-2 bg-red-950/40 border border-red-800/50 rounded-lg">
+            <p className="text-xs text-state-error-fg mt-3 px-3 py-2 bg-state-error-bg border border-state-error-border rounded-lg">
               {error}
             </p>
           )}
@@ -101,48 +101,48 @@ export function SwitchAccountPage(props: Props) {
           <button
             onClick={() => { void handleLogin('claude-ai'); }}
             disabled={loadingMethod !== null}
-            className="w-full mt-6 py-3 rounded-lg bg-[#D97757] hover:bg-[#c5684a] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full mt-6 py-3 rounded-lg bg-accent-claude hover:bg-accent-claude-hover disabled:opacity-60 disabled:cursor-not-allowed text-text-primary font-semibold text-sm transition-colors flex items-center justify-center gap-2"
           >
             {loadingMethod === 'claude-ai' && (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-border-strong border-t-text-primary rounded-full animate-spin" />
             )}
             Claude.ai Subscription
           </button>
-          <p className="text-xs text-zinc-500 mt-1.5">
+          <p className="text-xs text-text-tertiary mt-1.5">
             Use your Claude Pro, Team, or Enterprise subscription
           </p>
 
           <button
             onClick={() => { void handleLogin('console'); }}
             disabled={loadingMethod !== null}
-            className="w-full mt-5 py-3 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+            className="w-full mt-5 py-3 rounded-lg bg-surface-overlay border border-border-default hover:bg-surface-tooltip disabled:opacity-60 disabled:cursor-not-allowed text-text-primary font-semibold text-sm transition-colors flex items-center justify-center gap-2"
           >
             {loadingMethod === 'console' && (
-              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="w-4 h-4 border-2 border-border-strong border-t-text-primary rounded-full animate-spin" />
             )}
             Anthropic Console
           </button>
-          <p className="text-xs text-zinc-500 mt-1.5">
+          <p className="text-xs text-text-tertiary mt-1.5">
             Pay for API usage through your Console account
           </p>
 
           <button
             onClick={() => { void handleOpenProviderDocs(); }}
             disabled={loadingMethod !== null}
-            className="w-full mt-5 py-3 rounded-lg bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors flex items-center justify-center gap-1.5"
+            className="w-full mt-5 py-3 rounded-lg bg-surface-overlay border border-border-default hover:bg-surface-tooltip disabled:opacity-60 disabled:cursor-not-allowed text-text-primary font-semibold text-sm transition-colors flex items-center justify-center gap-1.5"
           >
             Bedrock, Foundry, or Vertex
             <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
           </button>
-          <p className="text-xs text-zinc-500 mt-1.5">
+          <p className="text-xs text-text-tertiary mt-1.5">
             Instructions on how to use API keys or third-party providers.
           </p>
 
-          <p className="text-xs text-zinc-500 mt-10 text-center">
+          <p className="text-xs text-text-tertiary mt-10 text-center">
             Prefer the terminal experience?{' '}
             <button
               onClick={() => { void handleOpenTerminal(); }}
-              className="text-blue-400 hover:underline cursor-pointer bg-transparent border-none p-0 font-inherit text-xs"
+              className="text-text-link hover:underline cursor-pointer bg-transparent border-none p-0 font-inherit text-xs"
             >
               Run claude in terminal
             </button>

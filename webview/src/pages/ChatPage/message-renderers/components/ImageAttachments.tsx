@@ -25,7 +25,7 @@ export const ImageAttachments: React.FC<ImageAttachmentsProps> = ({ images }) =>
             className="group relative cursor-pointer"
             onClick={() => setSelectedImage(getImageSrc(image))}
           >
-            <div className="overflow-hidden rounded-md border border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800/80 transition-colors">
+            <div className="overflow-hidden rounded-md border border-border-default bg-surface-hover hover:bg-surface-hover/80 transition-colors">
               <img
                 src={getImageSrc(image)}
                 alt={`Image ${index + 1}`}
@@ -40,7 +40,7 @@ export const ImageAttachments: React.FC<ImageAttachmentsProps> = ({ images }) =>
       {selectedImage && (
         <Portal>
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay-scrim backdrop-blur-sm"
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]">
@@ -51,7 +51,7 @@ export const ImageAttachments: React.FC<ImageAttachmentsProps> = ({ images }) =>
               onClick={(e) => e.stopPropagation()}
             />
             <button
-              className="absolute -top-3.5 -right-3.5 w-7 h-7 flex items-center justify-center rounded-full bg-zinc-800/20 hover:bg-zinc-700/70 border border-zinc-700 text-zinc-200 transition-colors"
+              className="absolute -top-3.5 -right-3.5 w-7 h-7 flex items-center justify-center rounded-full bg-surface-hover hover:bg-surface-tooltip/70 border border-border-default text-text-primary transition-colors"
               onClick={() => setSelectedImage(null)}
             >
               ✕

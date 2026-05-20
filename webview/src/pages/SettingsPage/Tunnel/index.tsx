@@ -49,11 +49,11 @@ export function TunnelSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">{meta.label}</h2>
+      <h2 className="text-xl font-semibold text-text-primary mb-6">{meta.label}</h2>
 
       <SettingSection title="Connection">
         {error && (
-          <div className="py-2 px-3 text-sm text-red-400 bg-red-400/10 rounded">
+          <div className="py-2 px-3 text-sm text-state-error-fg bg-state-error-fg/10 rounded">
             {error}
           </div>
         )}
@@ -69,31 +69,31 @@ export function TunnelSettings() {
         </SettingRow>
 
         {tunnelLoading && (
-          <div className="py-4 border-b border-zinc-800 flex flex-col items-center gap-2">
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <div className="py-4 border-b border-border-default flex flex-col items-center gap-2">
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
               <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
               <span>Establishing tunnel connection... ({elapsedSec}s)</span>
             </div>
-            <p className="text-xs text-zinc-600">This typically takes ~1 min (If installation is required, it takes about 3 mins.)</p>
+            <p className="text-xs text-text-disabled">This typically takes ~1 min (If installation is required, it takes about 3 mins.)</p>
           </div>
         )}
 
         {tunnelEnabled && tunnelUrl && (
-          <div className="py-4 border-b border-zinc-800">
+          <div className="py-4 border-b border-border-default">
             <div className="flex items-center gap-2 mb-4">
-              <span className="font-mono text-[0.8461rem] text-zinc-300 flex-1 truncate">{tunnelUrl}</span>
+              <span className="font-mono text-[0.8461rem] text-text-secondary flex-1 truncate">{tunnelUrl}</span>
               <button onClick={handleCopy} className="flex-shrink-0">
                 {copied
-                  ? <ClipboardDocumentCheckIcon className="w-3 h-3 text-green-400" />
-                  : <ClipboardDocumentIcon className="w-3 h-3 text-zinc-400 hover:text-zinc-200 cursor-pointer" />
+                  ? <ClipboardDocumentCheckIcon className="w-3 h-3 text-state-success-fg" />
+                  : <ClipboardDocumentIcon className="w-3 h-3 text-text-secondary hover:text-text-primary cursor-pointer" />
                 }
               </button>
             </div>
             <div className="flex justify-start">
-              <div className="bg-white p-3 rounded-lg">
+              <div className="bg-surface-base p-3 rounded-lg">
                 <QRCodeSVG value={tunnelUrl} size={100} />
               </div>
             </div>

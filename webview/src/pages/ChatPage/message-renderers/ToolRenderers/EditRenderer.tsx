@@ -55,9 +55,9 @@ function fromDiffText(diffText: string): DiffLine[] {
 }
 
 const lineStyles: Record<DiffLineType, string> = {
-    [DiffLineType.Add]: 'bg-green-500/15 text-green-400',
-    [DiffLineType.Delete]: 'bg-red-500/15 text-red-400',
-    [DiffLineType.Context]: 'text-zinc-400',
+    [DiffLineType.Add]: 'bg-state-success-fg/15 text-state-success-fg',
+    [DiffLineType.Delete]: 'bg-state-error-fg/15 text-state-error-fg',
+    [DiffLineType.Context]: 'text-text-secondary',
 };
 
 const prefixMap: Record<DiffLineType, string> = {
@@ -113,17 +113,17 @@ export function EditRenderer(props: RendererProps) {
     return (
         <ToolWrapper message={props.message}>
             <ToolHeader name={name} className="mb-[4px]" inProgress={!props.toolResult}>
-                <div className={cn("text-white/80 text-[0.8461rem] font-mono", path && "cursor-pointer hover:underline")} onClick={path ? () => getAdapter().openFile(path) : undefined}>{fileName}</div>
+                <div className={cn("text-text-primary/80 text-[0.8461rem] font-mono", path && "cursor-pointer hover:underline")} onClick={path ? () => getAdapter().openFile(path) : undefined}>{fileName}</div>
             </ToolHeader>
             <div ref={containerRef}>
-                <div className="text-white/50 text-[0.8461rem] mb-1">Modified</div>
+                <div className="text-text-primary/50 text-[0.8461rem] mb-1">Modified</div>
 
                 {showDiff && (
-                    <div className="rounded overflow-hidden border border-white/10 mt-2.5">
+                    <div className="rounded overflow-hidden border border-border-default mt-2.5">
                         <pre className="text-[0.9230rem] leading-[1.5] font-mono overflow-x-auto m-0">
                             {diffLines.map((line, i) => (
                                 <div key={i} className={`${lineStyles[line.type]}`}>
-                                    <div className={`${prefixMap[line.type].trim() ? 'inline-flex' : 'inline-block'} items-center justify-center w-4 select-none bg-zinc-600/20`}>{prefixMap[line.type]}</div>
+                                    <div className={`${prefixMap[line.type].trim() ? 'inline-flex' : 'inline-block'} items-center justify-center w-4 select-none bg-surface-pressed/20`}>{prefixMap[line.type]}</div>
                                     {line.content}
                                 </div>
                             ))}

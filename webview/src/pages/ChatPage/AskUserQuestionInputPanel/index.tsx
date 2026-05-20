@@ -82,7 +82,7 @@ export const AskUserQuestionInputPanel = (props: Props) => {
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="relative rounded-lg border bg-[#1e1e21] border-zinc-700 outline-none"
+        className="relative rounded-lg border bg-surface-raised border-border-default outline-none"
       >
         {/* Tab bar */}
         <div className="px-3 pt-2">
@@ -93,7 +93,7 @@ export const AskUserQuestionInputPanel = (props: Props) => {
           />
           {questionText && (
             <div className="mt-4">
-              <p className="text-zinc-200 text-[1rem]">{questionText}</p>
+              <p className="text-text-primary text-[1rem]">{questionText}</p>
             </div>
           )}
         </div>

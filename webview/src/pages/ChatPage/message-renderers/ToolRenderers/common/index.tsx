@@ -18,7 +18,7 @@ export const ToolWrapper = (props: {
         <div className={cn(`group pt-2 pb-4 pl-6 pr-3`, groupClassName)}>
             <div className="flex items-start gap-3">
                 {/* Bullet indicator */}
-                <span className="text-zinc-500 mt-[3px] text-[0.6923rem]">●</span>
+                <span className="text-text-tertiary mt-[3px] text-[0.6923rem]">●</span>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -57,18 +57,18 @@ export const ToolHeader = (props: {
 
     return (
         <div className={cn(`flex items-start gap-1.5 text-[1rem]`, className)}>
-            <div className="text-white text-[1rem] font-semibold">
+            <div className="text-text-primary text-[1rem] font-semibold">
                 <span className="">{name}</span>
             </div>
 
-            {children || <div className="text-white/60">{description}</div>}
+            {children || <div className="text-text-primary/60">{description}</div>}
         </div>
     )
 }
 
 export const Container = ({children, className = ''}: { children?: ReactNode; className?: string;}) => {
     return (
-        <div className={`bg-zinc-800/40 border border-white/15 rounded text-[0.8461rem] font-mono ${className}`}>
+        <div className={`bg-surface-hover border border-border-subtle rounded text-[0.8461rem] font-mono ${className}`}>
             {children}
         </div>
     )
@@ -96,7 +96,7 @@ export const LabelValue = (props: {
 }
 
 export const Label = ({name}: { name: string }) => {
-    return <div className="text-white/40 min-w-[40px]">{name}</div>
+    return <div className="text-text-primary/40 min-w-[40px]">{name}</div>
 }
 
 export const Value = (props: {
@@ -108,7 +108,7 @@ export const Value = (props: {
     const {isFocused, onClick, children, maxHeight = 'max-h-[105px]'} = props;
 
     return (
-        <div className={`flex-1 text-white/80 whitespace-pre font-mono overflow-y-hidden overflow-x-auto no-scrollbar cursor-pointer ${isFocused ? '' : maxHeight}`} onClick={onClick}>
+        <div className={`flex-1 text-text-primary/80 whitespace-pre font-mono overflow-y-hidden overflow-x-auto no-scrollbar cursor-pointer ${isFocused ? '' : maxHeight}`} onClick={onClick}>
             {children}
         </div>
     );

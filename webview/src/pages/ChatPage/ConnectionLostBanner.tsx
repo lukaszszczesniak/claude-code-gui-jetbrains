@@ -44,8 +44,8 @@ export function ConnectionLostBanner() {
     : `Backend disconnected. Reconnecting${dots}`;
 
   return (
-    <div className="w-full z-20 border-t border-b border-yellow-800 bg-yellow-900/40 px-4 py-1.5 flex items-center">
-      <span className="text-yellow-200 text-[0.8461rem]">
+    <div className="w-full z-20 border-t border-b border-state-warning-border bg-state-warning-bg px-4 py-1.5 flex items-center">
+      <span className="text-state-warning-fg text-[0.8461rem]">
         {message}
       </span>
     </div>

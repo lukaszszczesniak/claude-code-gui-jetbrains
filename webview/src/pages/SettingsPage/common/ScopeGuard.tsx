@@ -25,7 +25,7 @@ export function ScopeGuard(props: Props) {
       placement="top"
       render={(attrs) => (
         <div
-          className="bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-xs text-zinc-200 shadow-lg"
+          className="bg-surface-overlay border border-border-default rounded-md px-3 py-2 text-xs text-text-primary shadow-lg"
           {...attrs}
         >
           {tooltipText}

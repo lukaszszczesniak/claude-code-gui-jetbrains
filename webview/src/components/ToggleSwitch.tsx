@@ -27,11 +27,11 @@ export const ToggleSwitch = (props: Props) => {
         onChange(!checked);
       }}
       className={`relative inline-flex flex-shrink-0 items-center rounded-full transition-colors ${trackClass} ${
-        checked ? 'bg-blue-500' : 'bg-zinc-600'
+        checked ? 'bg-accent-primary' : 'bg-surface-pressed'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <span
-        className={`inline-block transform rounded-full bg-white transition-transform ${knobClass} ${
+        className={`inline-block transform rounded-full bg-surface-base transition-transform ${knobClass} ${
           checked ? knobOn : knobOff
         }`}
       />

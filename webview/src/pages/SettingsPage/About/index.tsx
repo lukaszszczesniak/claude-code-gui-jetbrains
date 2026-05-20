@@ -9,22 +9,22 @@ export function AboutSettings() {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-zinc-100 mb-6">{meta.label}</h2>
+      <h2 className="text-xl font-semibold text-text-primary mb-6">{meta.label}</h2>
 
       <SettingSection title="Version Information">
         <SettingRow label="Plugin Version">
-          <span className="text-sm text-zinc-400">{pluginVersion}</span>
+          <span className="text-sm text-text-secondary">{pluginVersion}</span>
         </SettingRow>
 
         <SettingRow label="Claude Code Version">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-zinc-400">{cliVersion ?? 'not detected'}</span>
+            <span className="text-sm text-text-secondary">{cliVersion ?? 'not detected'}</span>
             <button
               onClick={refresh}
               disabled={isLoading}
               aria-label="Refresh version"
               title="Refresh"
-              className="text-zinc-500 hover:text-zinc-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="text-text-tertiary hover:text-text-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ArrowPathIcon className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -38,7 +38,7 @@ export function AboutSettings() {
             href="https://github.com/yhk1038/claude-code-gui-jetbrains"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+            className="text-sm text-text-link hover:text-text-link hover:underline"
           >
             View on GitHub
           </a>
@@ -49,7 +49,7 @@ export function AboutSettings() {
             href="https://github.com/yhk1038/claude-code-gui-jetbrains/issues"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-blue-400 hover:text-blue-300 hover:underline"
+            className="text-sm text-text-link hover:text-text-link hover:underline"
           >
             Open Issue
           </a>
