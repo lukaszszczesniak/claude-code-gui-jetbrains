@@ -1,8 +1,6 @@
 package com.github.yhk1038.claudecodegui.toolwindow
 
-import com.intellij.ide.DataManager
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ex.ActionUtil
+import com.github.yhk1038.claudecodegui.platform.PlatformActionInvoker
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ui.HyperlinkLabel
 import java.awt.BorderLayout
@@ -80,16 +78,10 @@ class JcefUnavailablePanel : JPanel(BorderLayout()) {
     }
 
     private fun invokeChooseRuntime() {
-        val action = ActionManager.getInstance().getAction("ChooseRuntime")
-        if (action == null) {
-            logger.warn("Action 'ChooseRuntime' not found in this IDE version")
-            return
-        }
-        val dataContext = DataManager.getInstance().getDataContext(this)
-        // Use ActionUtil.invokeAction so we don't have to build the event ourselves
-        // (the manual factory is scheduled for removal) and so we don't violate the
-        // override-only contract of AnAction.
-        ActionUtil.invokeAction(action, dataContext, "JcefUnavailablePanel", null, null)
+        // PlatformActionInvoker picks the modern 3-arg ActionUtil.invokeAction on
+        // IntelliJ 2024.3+ and falls back to the legacy 5-arg overload on 2024.2.x
+        // (Android Studio Ladybug). The deprecation is contained inside the invoker.
+        PlatformActionInvoker.invokeActionById("ChooseRuntime", this, "JcefUnavailablePanel")
     }
 
     companion object {

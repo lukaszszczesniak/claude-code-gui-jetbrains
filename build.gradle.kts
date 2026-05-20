@@ -119,80 +119,10 @@ intellijPlatform {
             untilBuild = "261.*"
         }
         changeNotes = """
-            <h3>0.13.11 - Future-proof JCEF runtime install action</h3>
+            <h3>0.14.0 - Android Studio support</h3>
             <ul>
-                <li>Replaced deprecated and override-only IntelliJ Platform API usage in the JCEF fallback flow with <code>ActionUtil.invokeAction</code> so the "Install JCEF Runtime" button keeps working on future IDE versions</li>
-                <li>Added IntelliJ IDEA 2024.3.7 to the local Plugin Verifier matrix to catch similar deprecations before release</li>
-            </ul>
-            <h3>0.13.10 - Android Studio compatibility</h3>
-            <ul>
-                <li>Added graceful fallback when JCEF is not available in the current JetBrains Runtime (issue #34, mainly affects Android Studio)</li>
-                <li>Show a guidance panel and a sticky notification with a one-click "Install JCEF Runtime" action that opens the IDE's "Choose Boot Java Runtime for the IDE…" dialog</li>
-                <li>Declared <code>com.intellij.modules.jcef</code> as an optional plugin dependency so future Android Studio versions that bundle JCEF light up automatically</li>
-            </ul>
-            <h3>0.13.9 - Russian language option</h3>
-            <ul>
-                <li>Added Russian (Русский) to the Claude response language selector in Settings (issue #35)</li>
-            </ul>
-            <h3>0.13.8 - Preserve composer input on command palette actions</h3>
-            <ul>
-                <li>Fixed composer input being cleared when opening the slash command palette or executing a palette item such as switching models (issue #32)</li>
-            </ul>
-            <h3>0.13.7 - Dynamic model list &amp; input-mode fixes</h3>
-            <ul>
-                <li>Model list is now derived from the Claude CLI control response so available models always match the CLI</li>
-                <li>Fixed input mode (plan/normal/etc.) not being preserved when submitting via Enter</li>
-                <li>Fixed input mode not propagating when launching a slash command from the command palette</li>
-                <li>Fixed slash command palette remaining visible after arguments are typed</li>
-            </ul>
-            <h3>0.13.6 - CLI credential delegation &amp; usage caching</h3>
-            <ul>
-                <li>Replaced direct API credential access with Claude Code CLI delegation for usage queries</li>
-                <li>Removed token input UI from Settings Account page (credentials now managed by CLI)</li>
-                <li>Added inflight deduplication and error backoff to usage API caching</li>
-                <li>Stripped CLI noise (npm warnings) from usage error messages shown in UI</li>
-                <li>Fixed Windows compatibility for CLI subprocess execution</li>
-            </ul>
-            <h3>0.13.5 - Native folder picker, auth diagnosis &amp; IME fix</h3>
-            <ul>
-                <li>Added native OS folder picker dialog to the Project Selector page</li>
-                <li>Added auth error diagnosis banner when env API keys may be expired</li>
-                <li>Strip inherited OAuth env vars when spawning CLI to prevent stale token 401 errors</li>
-                <li>Fallback to JSONL scanning when sessions-index.json is missing</li>
-                <li>Fixed IME composing interference with slash command palette on Enter key</li>
-                <li>Fixed slash commands with no matches not delegating to normal submit</li>
-            </ul>
-            <h3>0.13.4 - Per-model effort levels &amp; auth stability</h3>
-            <ul>
-                <li>Effort levels are now derived from the Claude CLI per model, so the available options match each model accurately</li>
-                <li>Account lookup now uses the Claude CLI instead of direct credential access, improving stability across login methods</li>
-                <li>Added a dev-only border indicator to make development builds visually distinct from production</li>
-            </ul>
-            <h3>0.13.3 - Account settings &amp; streaming fixes</h3>
-            <ul>
-                <li>Added Account settings page with OAuth token and API key management</li>
-                <li>Fixed streaming messages insertion order by timestamp</li>
-                <li>Fixed settings parser failing on trailing commas in JSON</li>
-                <li>Fixed input mode not preserved when starting a new session via first message</li>
-                <li>Fixed plan acceptance panel not showing due to duplicate hook state</li>
-                <li>Fixed favicon SVG dimensions</li>
-            </ul>
-            <h3>0.13.2 - Editor tab &amp; resource fixes</h3>
-            <ul>
-                <li>Fixed new editor tab not opening in JetBrains environment</li>
-                <li>Fixed missing favicon-unread.svg in fallback resource extraction</li>
-            </ul>
-            <h3>0.13.1 - Maintenance patch</h3>
-            <ul>
-                <li>Maintenance patch release</li>
-            </ul>
-            <h3>0.13.0 - Session management &amp; agent tool rendering</h3>
-            <ul>
-                <li>Added session delete button to session dropdown with confirmation dialog</li>
-                <li>Added TaskOutput and TaskStop tool renderers for agent sub-task display</li>
-                <li>Added horizontal scroll for tool output content</li>
-                <li>Fixed browser back navigation triggered by trackpad horizontal swipe</li>
-                <li>Fixed potential Windows path error on language change</li>
+                <li>Claude Code GUI now runs on Android Studio. When the IDE is launched without JCEF — the default state on Android Studio's bundled JetBrains Runtime — the plugin shows a guidance panel and a sticky notification with a one-click <b>Install JCEF Runtime</b> action that opens the IDE's built-in <i>Choose Boot Java Runtime for the IDE…</i> dialog. After picking a JCEF-enabled runtime and restarting, the chat UI works normally (issue #34).</li>
+                <li>Declared <code>com.intellij.modules.jcef</code> as an optional plugin dependency, so future Android Studio versions that bundle JCEF (or have the standalone <i>Web Browser (JCEF)</i> marketplace plugin installed) light up automatically without any user action.</li>
             </ul>
         """.trimIndent()
     }
