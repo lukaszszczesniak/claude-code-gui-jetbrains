@@ -2,6 +2,7 @@ package com.github.yhk1038.claudecodegui.toolwindow
 
 import com.github.yhk1038.claudecodegui.actions.OpenClaudeCodeAction
 import com.github.yhk1038.claudecodegui.bridge.NodeProcessManager
+import com.github.yhk1038.claudecodegui.notifications.JcefRuntimeNotifier
 import com.github.yhk1038.claudecodegui.services.ClaudeCodeBrowserService
 import com.github.yhk1038.claudecodegui.services.DiffService
 import com.github.yhk1038.claudecodegui.services.NodeBackendService
@@ -55,25 +56,27 @@ class ClaudeCodePanel(
 
     // Browser is owned by ClaudeCodeBrowserService, NOT by this panel.
     // This allows the browser to survive dispose-recreate cycles during tab move/split.
+    // Returns null when JCEF is not supported (e.g. Android Studio without JCEF JBR).
     private val browserService = ClaudeCodeBrowserService.getInstance(project)
     private val holder = browserService.getOrCreate(sessionId)
-    private val browser: JBCefBrowser = holder.browser
-    private val cursorQuery: JBCefJSQuery = holder.cursorQuery
-    private val streamingQuery: JBCefJSQuery = holder.streamingQuery
+    private val browser: JBCefBrowser? = holder?.browser
+    private val cursorQuery: JBCefJSQuery? = holder?.cursorQuery
+    private val streamingQuery: JBCefJSQuery? = holder?.streamingQuery
 
     // Title/path change callbacks delegated to BrowserHolder
     // so handlers installed on first panel creation can reach the latest panel's callbacks.
+    // All callbacks are no-ops when holder is null (JCEF unavailable).
     var onTitleChanged: ((String) -> Unit)?
-        get() = holder.onTitleChanged
-        set(value) { holder.onTitleChanged = value }
+        get() = holder?.onTitleChanged
+        set(value) { holder?.onTitleChanged = value }
 
     var onPathChanged: ((String) -> Unit)?
-        get() = holder.onPathChanged
-        set(value) { holder.onPathChanged = value }
+        get() = holder?.onPathChanged
+        set(value) { holder?.onPathChanged = value }
 
     var onStreamingStateChanged: ((Boolean) -> Unit)?
-        get() = holder.onStreamingStateChanged
-        set(value) { holder.onStreamingStateChanged = value }
+        get() = holder?.onStreamingStateChanged
+        set(value) { holder?.onStreamingStateChanged = value }
 
     private val panelId = UUID.randomUUID().toString()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -91,9 +94,21 @@ class ClaudeCodePanel(
     private var errorPanel: JPanel? = null
 
     init {
-        if (holder.isLoaded) {
+        if (holder == null) {
+            // JCEF is not available in this runtime (e.g. Android Studio without JCEF JBR).
+            // Show a fallback guidance panel and skip all browser/backend initialization.
+            add(JcefUnavailablePanel(), BorderLayout.CENTER)
+            logger.warn("JCEF is not supported in this runtime — showing fallback panel")
+            JcefRuntimeNotifier.notify(project)
+        } else {
+            initWithJcef()
+        }
+    }
+
+    private fun initWithJcef() {
+        if (holder!!.isLoaded) {
             // Browser already loaded — reattach component (tab move/split restoration)
-            val parent = browser.component.parent
+            val parent = browser!!.component.parent
             if (parent != null && parent !== this) {
                 parent.remove(browser.component)
             }
@@ -131,9 +146,14 @@ class ClaudeCodePanel(
 
     // ─── Browser handlers (JCEF) ────────────────────────────────────
 
+    // Called only from initWithJcef() — holder, browser, cursorQuery, streamingQuery are guaranteed non-null here.
     private fun setupBrowserHandlers() {
+        val b = browser!!
+        val cq = cursorQuery!!
+        val sq = streamingQuery!!
+
         // Handle CSS cursor changes from WebView
-        cursorQuery.addHandler { cursorName: String ->
+        cq.addHandler { cursorName: String ->
             val javaCursorType = when (cursorName) {
                 "text" -> java.awt.Cursor.TEXT_CURSOR
                 "pointer" -> java.awt.Cursor.HAND_CURSOR
@@ -149,19 +169,19 @@ class ClaudeCodePanel(
                 else -> java.awt.Cursor.DEFAULT_CURSOR
             }
             javax.swing.SwingUtilities.invokeLater {
-                browser.component.cursor = java.awt.Cursor.getPredefinedCursor(javaCursorType)
+                b.component.cursor = java.awt.Cursor.getPredefinedCursor(javaCursorType)
             }
             JBCefJSQuery.Response(null)
         }
 
         // Handle streaming state changes from WebView
-        streamingQuery.addHandler { state: String ->
-            holder.onStreamingStateChanged?.invoke(state == "streaming")
+        sq.addHandler { state: String ->
+            holder!!.onStreamingStateChanged?.invoke(state == "streaming")
             JBCefJSQuery.Response(null)
         }
 
         // Inject scripts on page load
-        browser.jbCefClient.addLoadHandler(object : CefLoadHandlerAdapter() {
+        b.jbCefClient.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadEnd(browser: CefBrowser, frame: CefFrame, httpStatusCode: Int) {
                 if (frame.isMain) {
                     // Mark JCEF environment so detectRuntime() in environment.ts can detect
@@ -172,26 +192,26 @@ class ClaudeCodePanel(
                     installImeWorkaround()
                     logger.info("WebView loaded successfully")
                     javax.swing.SwingUtilities.invokeLater {
-                        this@ClaudeCodePanel.browser.component.requestFocusInWindow()
+                        b.component.requestFocusInWindow()
                     }
                 }
             }
-        }, browser.cefBrowser)
+        }, b.cefBrowser)
 
         // Title change detection, address change tracking, and console log capture
-        browser.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
+        b.jbCefClient.addDisplayHandler(object : CefDisplayHandlerAdapter() {
             override fun onAddressChange(browser: CefBrowser?, frame: CefFrame?, url: String?) {
                 if (url != null && frame?.isMain == true) {
                     try {
                         val uri = java.net.URI(url)
-                        holder.onPathChanged?.invoke(uri.path)
+                        holder!!.onPathChanged?.invoke(uri.path)
                     } catch (_: Exception) { /* ignore malformed URLs */ }
                 }
             }
 
             override fun onTitleChange(browser: CefBrowser?, title: String?) {
                 if (title != null && title.isNotBlank()) {
-                    holder.onTitleChanged?.invoke(title)
+                    holder!!.onTitleChanged?.invoke(title)
                 }
             }
 
@@ -213,16 +233,16 @@ class ClaudeCodePanel(
                 }
                 return false
             }
-        }, browser.cefBrowser)
+        }, b.cefBrowser)
 
         // Keyboard handler: prevent IDE from intercepting WebView shortcuts
-        browser.jbCefClient.addKeyboardHandler(
+        b.jbCefClient.addKeyboardHandler(
             WebViewKeyboardHandler(onOpenDevTools = { openDevTools() }),
-            browser.cefBrowser
+            b.cefBrowser
         )
 
         // Life span handler: intercept window.open() popups and route them correctly
-        browser.jbCefClient.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
+        b.jbCefClient.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
             override fun onBeforePopup(
                 browser: CefBrowser?,
                 frame: CefFrame?,
@@ -265,18 +285,19 @@ class ClaudeCodePanel(
                 }
                 return true // Always block JCEF from opening the popup natively
             }
-        }, browser.cefBrowser)
+        }, b.cefBrowser)
     }
 
     /**
      * Inject streaming state bridge so WebView can notify Kotlin of streaming changes
      * via JBCefJSQuery instead of encoding state into document.title.
      */
+    // Called only from setupBrowserHandlers() which is only called from initWithJcef() — streamingQuery is non-null.
     private fun injectStreamingStateBridge(frame: CefFrame) {
         val js = """
             (function() {
                 window.__notifyStreamingState = function(state) {
-                    ${streamingQuery.inject("state")}
+                    ${streamingQuery!!.inject("state")}
                 };
             })();
         """.trimIndent()
@@ -286,6 +307,7 @@ class ClaudeCodePanel(
     /**
      * Inject cursor CSS tracking script into the loaded page.
      */
+    // Called only from setupBrowserHandlers() which is only called from initWithJcef() — cursorQuery is non-null.
     private fun injectCursorTracking(frame: CefFrame) {
         val js = """
             (function() {
@@ -294,7 +316,7 @@ class ClaudeCodePanel(
                     var cursor = window.getComputedStyle(e.target).cursor;
                     if (cursor !== lastCursor) {
                         lastCursor = cursor;
-                        ${cursorQuery.inject("cursor")}
+                        ${cursorQuery!!.inject("cursor")}
                     }
                 }, true);
             })();
@@ -307,8 +329,9 @@ class ClaudeCodePanel(
      * Wraps InputMethodListeners with try-catch to suppress NPE from
      * JBCefInputMethodAdapter when replacementRange is null (macOS + JCEF + CJK IME).
      */
+    // Called only from setupBrowserHandlers() which is only called from initWithJcef() — holder and browser are non-null.
     private fun installImeWorkaround() {
-        if (holder.imeWorkaroundInstalled) return
+        if (holder!!.imeWorkaroundInstalled) return
 
         fun wrapListeners(component: java.awt.Component) {
             val listeners = component.inputMethodListeners
@@ -346,7 +369,7 @@ class ClaudeCodePanel(
         }
 
         javax.swing.SwingUtilities.invokeLater {
-            traverseAndWrap(browser.component)
+            traverseAndWrap(browser!!.component)
             holder.imeWorkaroundInstalled = true
             logger.info("JCEF IME NPE workaround installed")
         }
@@ -355,9 +378,10 @@ class ClaudeCodePanel(
     /**
      * Opens the JCEF DevTools for debugging.
      */
+    // Called only from WebViewKeyboardHandler installed via initWithJcef() — browser is non-null.
     private fun openDevTools() {
         try {
-            (browser as? com.intellij.ui.jcef.JBCefBrowserBase)?.openDevtools()
+            (browser!! as? com.intellij.ui.jcef.JBCefBrowserBase)?.openDevtools()
                 ?: logger.warn("Failed to open DevTools: browser is not JBCefBrowserBase")
         } catch (e: Exception) {
             logger.error("Failed to open DevTools", e)
@@ -370,6 +394,7 @@ class ClaudeCodePanel(
      * Load the WebView URL from the Node.js backend.
      * Called once the backend has printed its PORT.
      */
+    // Called only from initWithJcef() — holder and browser are non-null.
     private fun loadWebView(port: Int) {
         System.err.println("[ClaudeCodePanel] loadWebView called for project: ${project.name}")
         System.err.println("[ClaudeCodePanel] project.basePath: ${project.basePath}")
@@ -385,9 +410,9 @@ class ClaudeCodePanel(
 
         javax.swing.SwingUtilities.invokeLater {
             remove(loadingLabel)
-            browser.loadURL(url)
+            browser!!.loadURL(url)
             add(browser.component, BorderLayout.CENTER)
-            holder.isLoaded = true
+            holder!!.isLoaded = true
             revalidate()
             repaint()
         }
@@ -653,10 +678,13 @@ class ClaudeCodePanel(
         // Detach browser component from this panel WITHOUT disposing the browser.
         // The browser is owned by ClaudeCodeBrowserService and survives tab move/split.
         // It will be reattached when a new ClaudeCodePanel is created for the same session.
-        remove(browser.component)
+        // When holder is null (JCEF unavailable), browser was never added, so nothing to detach.
+        browser?.let { remove(it.component) }
 
         scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
-        backendService.releasePanel(project.basePath ?: "", panelId)
+        if (holder != null) {
+            backendService.releasePanel(project.basePath ?: "", panelId)
+        }
         // NOTE: Do NOT call Disposer.dispose(cursorQuery) or Disposer.dispose(browser).
         // They are managed by ClaudeCodeBrowserService and released in fileClosed().
         logger.info("ClaudeCodePanel disposed (browser retained in pool)")

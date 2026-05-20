@@ -5,6 +5,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
+import com.intellij.ui.jcef.JBCefApp
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefBrowserBase
 import com.intellij.ui.jcef.JBCefJSQuery
@@ -55,7 +56,11 @@ class ClaudeCodeBrowserService(private val project: Project) : Disposable {
      * Get an existing browser for the session, or create a new one.
      * The browser is NOT registered with Disposer — it is managed by this service.
      */
-    fun getOrCreate(sessionId: String): BrowserHolder {
+    fun getOrCreate(sessionId: String): BrowserHolder? {
+        if (!JBCefApp.isSupported()) {
+            logger.warn("JCEF is not supported in this runtime — cannot create browser for session: $sessionId")
+            return null
+        }
         return holders.getOrPut(sessionId) {
             logger.info("Creating new JCEF browser for session: $sessionId")
             val browser = JBCefBrowser()

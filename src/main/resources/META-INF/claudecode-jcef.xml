@@ -1,0 +1,12 @@
+<idea-plugin>
+    <!--
+      Loaded when com.intellij.modules.jcef is available.
+
+      Currently we do not declare any JCEF-specific extensions here — the JCEF
+      runtime is consumed directly via JBCefApp.isSupported() and JBCefBrowser
+      from Kotlin code (see ClaudeCodeBrowserService).
+
+      This file exists primarily to satisfy the optional <depends> contract and
+      to give the IDE a hint that this plugin makes use of JCEF when available.
+    -->
+</idea-plugin>

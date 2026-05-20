@@ -119,6 +119,12 @@ intellijPlatform {
             untilBuild = "261.*"
         }
         changeNotes = """
+            <h3>0.13.10 - Android Studio compatibility</h3>
+            <ul>
+                <li>Added graceful fallback when JCEF is not available in the current JetBrains Runtime (issue #34, mainly affects Android Studio)</li>
+                <li>Show a guidance panel and a sticky notification with a one-click "Switch Runtime" action to help users switch to a JCEF-enabled JBR</li>
+                <li>Declared <code>com.intellij.modules.jcef</code> as an optional plugin dependency</li>
+            </ul>
             <h3>0.13.9 - Russian language option</h3>
             <ul>
                 <li>Added Russian (Русский) to the Claude response language selector in Settings (issue #35)</li>

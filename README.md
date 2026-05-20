@@ -123,6 +123,31 @@ The same Claude Code GUI you love in Cursor and VS Code, now available in JetBra
 - `Ctrl+Shift+C` — Open Claude Code panel
 - `Cmd+N` / `Ctrl+N` (panel focused) — New session tab
 
+## Android Studio Compatibility
+
+Android Studio ships with a JetBrains Runtime (JBR) that does **not** include JCEF (Chromium Embedded Framework). This plugin's WebView UI relies on JCEF, so it will display a guidance panel instead of the chat UI when launched on the default Android Studio runtime.
+
+### Switch to a JCEF-enabled runtime
+
+1. Open Find Action: `Cmd+Shift+A` (macOS) or `Ctrl+Shift+A` (Windows/Linux).
+2. Search for **Choose Boot Java Runtime for the IDE…** and run it.
+3. In the dropdown, pick a runtime whose name contains **"JCEF"** or **"with JCEF"**.
+4. Click **OK** and restart the IDE when prompted.
+
+When the plugin detects a missing JCEF runtime, it also shows a notification with a one-click **Switch Runtime** button that opens the same dialog.
+
+### Recovering from a bad runtime swap
+
+If the IDE fails to boot after a runtime swap, delete the `studio.jdk` file from the Android Studio config directory to restore the default runtime:
+
+- **macOS**: `~/Library/Application Support/Google/AndroidStudio<version>/studio.jdk`
+- **Linux**: `~/.config/Google/AndroidStudio<version>/studio.jdk`
+- **Windows**: `%APPDATA%\Google\AndroidStudio<version>\studio.jdk`
+
+### Future support
+
+JetBrains released an experimental **Web Browser (JCEF)** marketplace plugin (ID 31360) in April 2025 to bring JCEF to Android Studio 2026.1 Nightly and later. Once that becomes stable, the runtime swap above will no longer be needed.
+
 ## Contributing
 
 Contributions of all kinds are welcome — bug reports, feature ideas, code, documentation, and translations.
