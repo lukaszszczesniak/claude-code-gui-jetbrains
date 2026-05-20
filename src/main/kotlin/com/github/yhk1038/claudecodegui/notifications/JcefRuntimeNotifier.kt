@@ -32,16 +32,16 @@ object JcefRuntimeNotifier {
             .getNotificationGroup("claude-code-gui.jcef-runtime")
             .createNotification(
                 "JCEF runtime not available",
-                "Switch to a JetBrains Runtime with JCEF to use Claude Code.",
+                "Claude Code GUI needs JCEF to render its chat UI. Click to install a JCEF-enabled runtime.",
                 NotificationType.WARNING
             )
-            .addAction(object : NotificationAction("Switch Runtime") {
+            .addAction(object : NotificationAction("Install JCEF Runtime") {
                 override fun actionPerformed(e: AnActionEvent, n: Notification) {
-                    val action = ActionManager.getInstance().getAction("ChooseBootRuntime")
+                    val action = ActionManager.getInstance().getAction("ChooseRuntime")
                     if (action != null) {
                         action.actionPerformed(e)
                     } else {
-                        logger.warn("Action 'ChooseBootRuntime' not found in this IDE version")
+                        logger.warn("Action 'ChooseRuntime' not found in this IDE version")
                     }
                     n.expire()
                 }

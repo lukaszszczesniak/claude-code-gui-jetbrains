@@ -196,7 +196,10 @@ intellijPlatform {
     }
     pluginVerification {
         ides {
-            recommended()
+            // Match our platformVersion (2024.2) for regression baseline
+            ide("IC", "2024.2.6")
+            // Android Studio Ladybug (2024.2.2) — primary target of issue #34
+            ide("AI", "2024.2.2.13")
         }
     }
 }
@@ -212,9 +215,13 @@ tasks {
 
     // Enable dev mode for runIde (uses Vite dev server if available)
     // Can be disabled via: CLAUDE_DEV_MODE=false ./gradlew runIde
+    // Simulate JCEF-unavailable runtime via: CLAUDE_SIMULATE_NO_JCEF=true ./gradlew runIde
     named<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runIde") {
         jvmArgumentProviders += CommandLineArgumentProvider {
-            listOf("-Dclaude.dev.mode=${System.getenv("CLAUDE_DEV_MODE") ?: "true"}")
+            listOf(
+                "-Dclaude.dev.mode=${System.getenv("CLAUDE_DEV_MODE") ?: "true"}",
+                "-Dclaude.simulate.no.jcef=${System.getenv("CLAUDE_SIMULATE_NO_JCEF") ?: "false"}"
+            )
         }
     }
 

@@ -57,7 +57,10 @@ class ClaudeCodeBrowserService(private val project: Project) : Disposable {
      * The browser is NOT registered with Disposer — it is managed by this service.
      */
     fun getOrCreate(sessionId: String): BrowserHolder? {
-        if (!JBCefApp.isSupported()) {
+        // The system property is a developer-only escape hatch for verifying the
+        // JCEF-unavailable fallback path (e.g. Android Studio reproduction) without
+        // having to swap the boot JBR. End users are not expected to set it.
+        if (!JBCefApp.isSupported() || java.lang.Boolean.getBoolean("claude.simulate.no.jcef")) {
             logger.warn("JCEF is not supported in this runtime — cannot create browser for session: $sessionId")
             return null
         }
