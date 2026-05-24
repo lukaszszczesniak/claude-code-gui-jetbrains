@@ -50,7 +50,13 @@ echo "Build artifact: $ZIP"
 echo ""
 echo "--- git commit & tag ---"
 git -C "$ROOT" add -A
-git -C "$ROOT" commit -m "release: ${TAG}" --allow-empty
+COMMIT_MSG="release: ${TAG}"
+if [[ -n "${RELEASE_COMMIT_TRAILER:-}" ]]; then
+  COMMIT_MSG="${COMMIT_MSG}
+
+${RELEASE_COMMIT_TRAILER}"
+fi
+git -C "$ROOT" commit -m "$COMMIT_MSG" --allow-empty
 git -C "$ROOT" tag "$TAG"
 
 echo "--- git push ---"

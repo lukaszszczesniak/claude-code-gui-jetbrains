@@ -119,22 +119,11 @@ intellijPlatform {
             untilBuild = "261.*"
         }
         changeNotes = """
-            <h3>0.14.2 - Chat widgets for new Task tools and TaskOutput tail copy</h3>
+            <h3>0.15.0 - Tool cards for filesystem MCP server and NotebookEdit</h3>
             <ul>
-                <li>Added dedicated chat widgets for the new <code>TaskCreate</code> / <code>TaskGet</code> / <code>TaskList</code> / <code>TaskUpdate</code> tools, which previously rendered as the generic 'unknown' placeholder after Claude Code CLI replaced TodoWrite with these split-out tools.</li>
-                <li>Click the <code>TaskOutput</code> widget header to copy a <code>tail -f &lt;output-file&gt;</code> command to your clipboard, so you can follow a backgrounded bash task in your own terminal.</li>
-            </ul>
-            <h3>0.14.1 - Theme system and usage panel fixes</h3>
-            <ul>
-                <li>Added a full light/dark theme system with semantic color tokens, so the chat UI, dropdowns, and settings panels follow your IDE theme consistently.</li>
-                <li>The font size setting now actually applies to the chat UI, and the range has been expanded to 8–32 (issue #38).</li>
-                <li>Account usage panel now invokes <code>ccb</code> through your user shell, so freshly installed CLIs (via nvm/volta and similar version managers) are picked up without restarting the IDE.</li>
-                <li>Fixed account usage spawn failure for users whose default shell is fish — the plugin now falls back to <code>/bin/sh</code> when a non-POSIX login shell is detected.</li>
-            </ul>
-            <h3>0.14.0 - Android Studio support</h3>
-            <ul>
-                <li>Claude Code GUI now runs on Android Studio. When the IDE is launched without JCEF — the default state on Android Studio's bundled JetBrains Runtime — the plugin shows a guidance panel and a sticky notification with a one-click <b>Install JCEF Runtime</b> action that opens the IDE's built-in <i>Choose Boot Java Runtime for the IDE…</i> dialog. After picking a JCEF-enabled runtime and restarting, the chat UI works normally (issue #34).</li>
-                <li>Declared <code>com.intellij.modules.jcef</code> as an optional plugin dependency, so future Android Studio versions that bundle JCEF (or have the standalone <i>Web Browser (JCEF)</i> marketplace plugin installed) light up automatically without any user action.</li>
+                <li>Added dedicated chat widgets for the official <code>@modelcontextprotocol/server-filesystem</code> MCP tools — <code>read_file</code>, <code>read_multiple_files</code>, <code>read_media_file</code>, <code>write_file</code>, <code>edit_file</code>, <code>create_directory</code>, <code>list_directory</code>, <code>directory_tree</code>, <code>move_file</code>, <code>search_files</code>, <code>get_file_info</code>, and <code>list_allowed_directories</code> — which previously rendered as the generic 'unknown' placeholder.</li>
+                <li>Added a dedicated chat widget for the <code>NotebookEdit</code> tool, so Jupyter notebook edits show a proper card instead of the generic placeholder.</li>
+                <li>Closes issue #42 — built-in Claude Code tools now render as VS Code-style tool cards across the board.</li>
             </ul>
         """.trimIndent()
     }
