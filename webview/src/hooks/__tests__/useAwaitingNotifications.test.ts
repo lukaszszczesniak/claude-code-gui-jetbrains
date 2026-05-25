@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { NotificationKind, SOUND_OFF } from '@/notifications';
+import { FAVICON_DEFAULT, hasUnreadFavicon, restoreDefaultFavicon } from '../favicon';
 
 const notifyMock = vi.fn();
 
@@ -21,13 +22,21 @@ function setHidden(hidden: boolean) {
   });
 }
 
+let faviconLink: HTMLLinkElement;
+
 beforeEach(() => {
   notifyMock.mockReset();
   setHidden(false);
+  faviconLink = document.createElement('link');
+  faviconLink.rel = 'icon';
+  faviconLink.href = FAVICON_DEFAULT;
+  document.head.appendChild(faviconLink);
 });
 
 afterEach(() => {
   setHidden(false);
+  restoreDefaultFavicon();
+  faviconLink.remove();
 });
 
 describe('useAwaitingNotifications', () => {
@@ -64,6 +73,7 @@ describe('useAwaitingNotifications', () => {
       { sessionTitle: 'Session A' },
       SOUND_OFF,
     );
+    expect(hasUnreadFavicon()).toBe(true);
   });
 
   it('does NOT fire AWAITING_PLAN_APPROVAL while tab is visible', () => {
@@ -101,6 +111,7 @@ describe('useAwaitingNotifications', () => {
       { sessionTitle: 'Session A' },
       SOUND_OFF,
     );
+    expect(hasUnreadFavicon()).toBe(true);
   });
 
   it('does NOT fire when the tab is visible', () => {
@@ -115,6 +126,7 @@ describe('useAwaitingNotifications', () => {
     rerender({ pending: true });
 
     expect(notifyMock).not.toHaveBeenCalled();
+    expect(hasUnreadFavicon()).toBe(false);
   });
 
   it('does NOT fire again while a permission stays pending', () => {
@@ -188,6 +200,7 @@ describe('useAwaitingNotifications', () => {
       { sessionTitle: 'Session A' },
       SOUND_OFF,
     );
+    expect(hasUnreadFavicon()).toBe(true);
   });
 
   it('does NOT fire AWAITING_USER_INPUT while tab is visible', () => {

@@ -5,16 +5,11 @@ import {
   notify,
   type SoundSelection,
 } from '@/notifications';
-
-const FAVICON_DEFAULT = '/favicon.svg';
-const FAVICON_UNREAD = '/favicon-unread.svg';
-
-function setFavicon(href: string) {
-  const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-  if (link && link.href !== href) {
-    link.href = href;
-  }
-}
+import {
+  hasUnreadFavicon,
+  restoreDefaultFavicon,
+  setUnreadFavicon,
+} from './favicon';
 
 /**
  * Hook to update the document title based on the current session and streaming state.
@@ -42,7 +37,6 @@ export function useDocumentTitle(
   error: Error | null,
 ) {
   const wasStreamingRef = useRef(false);
-  const hasUnreadRef = useRef(false);
 
   // Keep latest values in refs so the streaming-end effect always sees them
   // without rebinding on every render.
@@ -74,8 +68,7 @@ export function useDocumentTitle(
   // Detect streaming end while tab is hidden → show unread favicon + desktop notification
   useEffect(() => {
     if (!isStreaming && wasStreamingRef.current && document.hidden) {
-      hasUnreadRef.current = true;
-      setFavicon(FAVICON_UNREAD);
+      setUnreadFavicon();
       notify(
         errorRef.current ? NotificationKind.STREAM_ERROR : NotificationKind.SESSION_COMPLETE,
         { sessionTitle: titleRef.current },
@@ -85,12 +78,13 @@ export function useDocumentTitle(
     wasStreamingRef.current = isStreaming;
   }, [isStreaming]);
 
-  // Restore favicon when tab becomes visible
+  // Restore favicon when tab becomes visible. Reads the current favicon
+  // from the DOM rather than a ref so that any code path that sets the
+  // unread state (e.g. useAwaitingNotifications) is correctly cleared.
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (!document.hidden && hasUnreadRef.current) {
-        hasUnreadRef.current = false;
-        setFavicon(FAVICON_DEFAULT);
+      if (!document.hidden && hasUnreadFavicon()) {
+        restoreDefaultFavicon();
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);

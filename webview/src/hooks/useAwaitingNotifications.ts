@@ -4,6 +4,7 @@ import {
   notify,
   type SoundSelection,
 } from '@/notifications';
+import { setUnreadFavicon } from './favicon';
 
 interface AwaitingSignals {
   /** Becomes truthy while the user has a pending tool-permission request. */
@@ -15,15 +16,19 @@ interface AwaitingSignals {
 }
 
 /**
- * Fires desktop notifications when the app transitions into a state that is
- * waiting on the user (currently: pending tool-permission requests). Only
- * notifies while the tab is hidden — when the user can already see the
- * pending UI on screen, the OS notification would be redundant noise.
+ * Fires desktop notifications and toggles the unread favicon when the app
+ * transitions into a state that needs the user's attention (currently:
+ * pending tool-permission, plan-approval, or user-question prompts).
  *
- * Unlike SESSION_COMPLETE/STREAM_ERROR, "awaiting" notifications do NOT swap
- * the favicon — the in-page pending UI is self-evident once the user returns
- * to the tab, and an unread badge for every awaiting state would compete
- * with the streaming-complete signal.
+ * Triggers only while the tab is hidden — if the user is already viewing
+ * the session, both the OS notification and the unread badge would be
+ * redundant noise. The favicon is restored by useDocumentTitle's
+ * visibilitychange handler, which reads the DOM directly so any source can
+ * set the unread state.
+ *
+ * Unread badge and desktop notification always travel together: their
+ * shared purpose is to signal "you should be looking at this session right
+ * now" regardless of which specific event triggered it.
  */
 export function useAwaitingNotifications(
   sessionTitle: string | null,
@@ -43,6 +48,7 @@ export function useAwaitingNotifications(
   useEffect(() => {
     const isPending = signals.pendingPermission;
     if (isPending && !wasPendingPermissionRef.current && document.hidden) {
+      setUnreadFavicon();
       notify(
         NotificationKind.AWAITING_PERMISSION,
         { sessionTitle: sessionTitleRef.current },
@@ -56,6 +62,7 @@ export function useAwaitingNotifications(
   useEffect(() => {
     const isPending = signals.pendingPlanApproval;
     if (isPending && !wasPendingPlanRef.current && document.hidden) {
+      setUnreadFavicon();
       notify(
         NotificationKind.AWAITING_PLAN_APPROVAL,
         { sessionTitle: sessionTitleRef.current },
@@ -69,6 +76,7 @@ export function useAwaitingNotifications(
   useEffect(() => {
     const isPending = signals.pendingUserAnswer;
     if (isPending && !wasPendingUserAnswerRef.current && document.hidden) {
+      setUnreadFavicon();
       notify(
         NotificationKind.AWAITING_USER_INPUT,
         { sessionTitle: sessionTitleRef.current },
