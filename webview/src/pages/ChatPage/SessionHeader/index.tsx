@@ -11,9 +11,9 @@ import { useNotificationSound } from '@/notifications';
 
 export function SessionHeader() {
   const { currentSession } = useSessionContext();
-  const { isStreaming } = useChatStreamContext();
+  const { isStreaming, error } = useChatStreamContext();
   const { selection } = useNotificationSound();
-  useDocumentTitle(currentSession?.title || null, isStreaming, selection);
+  useDocumentTitle(currentSession?.title || null, isStreaming, selection, error);
 
   return (
     <div className="flex justify-between items-center px-2 py-1">

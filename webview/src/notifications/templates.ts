@@ -11,4 +11,9 @@ export const NOTIFICATION_TEMPLATES: Record<NotificationKind, NotificationTempla
     body: 'Response complete',
     icon: '/favicon.svg',
   },
+  [NotificationKind.STREAM_ERROR]: {
+    title: (ctx: NotificationContext) => ctx.sessionTitle ?? APP_NAME,
+    body: 'Response failed',
+    icon: '/favicon.svg',
+  },
 };

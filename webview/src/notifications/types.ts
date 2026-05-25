@@ -1,12 +1,12 @@
 /**
  * Kinds of desktop notifications the app can emit.
  *
- * Phase 1 only ships SESSION_COMPLETE; future kinds (AWAITING_USER_INPUT,
- * AWAITING_PERMISSION, AWAITING_PLAN_APPROVAL, STREAM_ERROR, ...) plug in
- * by adding an entry here plus a template in templates.ts.
+ * To add a new kind, add an entry here plus a template in templates.ts and
+ * wire the trigger at the appropriate site.
  */
 export enum NotificationKind {
   SESSION_COMPLETE = 'SESSION_COMPLETE',
+  STREAM_ERROR = 'STREAM_ERROR',
 }
 
 export interface NotificationContext {

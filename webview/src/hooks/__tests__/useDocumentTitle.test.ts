@@ -38,19 +38,19 @@ afterEach(() => {
 
 describe('useDocumentTitle', () => {
   it('sets document.title from the session title', () => {
-    renderHook(() => useDocumentTitle('My Session', false, SOUND_OFF));
+    renderHook(() => useDocumentTitle('My Session', false, SOUND_OFF, null));
     expect(document.title).toBe('My Session');
   });
 
   it('falls back to "Claude Code" when title is null', () => {
-    renderHook(() => useDocumentTitle(null, false, SOUND_OFF));
+    renderHook(() => useDocumentTitle(null, false, SOUND_OFF, null));
     expect(document.title).toBe('Claude Code');
   });
 
   it('calls notify(SESSION_COMPLETE) when streaming ends while hidden', () => {
     setHidden(true);
     const { rerender } = renderHook(
-      ({ streaming }) => useDocumentTitle('Session A', streaming, SOUND_OFF),
+      ({ streaming }) => useDocumentTitle('Session A', streaming, SOUND_OFF, null),
       { initialProps: { streaming: true } },
     );
 
@@ -68,7 +68,7 @@ describe('useDocumentTitle', () => {
   it('does NOT call notify when streaming ends while tab is visible', () => {
     setHidden(false);
     const { rerender } = renderHook(
-      ({ streaming }) => useDocumentTitle('Session A', streaming, SOUND_OFF),
+      ({ streaming }) => useDocumentTitle('Session A', streaming, SOUND_OFF, null),
       { initialProps: { streaming: true } },
     );
 
@@ -81,7 +81,7 @@ describe('useDocumentTitle', () => {
   it('passes the SOUND_OFF selection through to notify()', () => {
     setHidden(true);
     const { rerender } = renderHook(
-      ({ streaming }) => useDocumentTitle('Session A', streaming, SOUND_OFF),
+      ({ streaming }) => useDocumentTitle('Session A', streaming, SOUND_OFF, null),
       { initialProps: { streaming: true } },
     );
 
@@ -98,7 +98,7 @@ describe('useDocumentTitle', () => {
   it('passes a backend soundId through to notify()', () => {
     setHidden(true);
     const { rerender } = renderHook(
-      ({ streaming }) => useDocumentTitle('Session A', streaming, 'Glass'),
+      ({ streaming }) => useDocumentTitle('Session A', streaming, 'Glass', null),
       { initialProps: { streaming: true } },
     );
 
@@ -115,7 +115,7 @@ describe('useDocumentTitle', () => {
   it('uses the latest soundSelection captured before the streaming-end transition', () => {
     setHidden(true);
     const { rerender } = renderHook(
-      ({ streaming, sound }) => useDocumentTitle('Session A', streaming, sound),
+      ({ streaming, sound }) => useDocumentTitle('Session A', streaming, sound, null),
       { initialProps: { streaming: true, sound: SOUND_OFF as string } },
     );
 
@@ -130,6 +130,39 @@ describe('useDocumentTitle', () => {
       { sessionTitle: 'Session A' },
       'Ping',
     );
+  });
+
+  it('calls notify(STREAM_ERROR) when streaming ends with an error while hidden', () => {
+    setHidden(true);
+    const err = new Error('boom');
+    const { rerender } = renderHook(
+      ({ streaming, error }) => useDocumentTitle('Session A', streaming, SOUND_OFF, error),
+      { initialProps: { streaming: true, error: null as Error | null } },
+    );
+
+    notifyMock.mockReset();
+    rerender({ streaming: false, error: err });
+
+    expect(notifyMock).toHaveBeenCalledTimes(1);
+    expect(notifyMock).toHaveBeenCalledWith(
+      NotificationKind.STREAM_ERROR,
+      { sessionTitle: 'Session A' },
+      SOUND_OFF,
+    );
+  });
+
+  it('does NOT call notify on error transitions while tab is visible', () => {
+    setHidden(false);
+    const err = new Error('boom');
+    const { rerender } = renderHook(
+      ({ streaming, error }) => useDocumentTitle('Session A', streaming, SOUND_OFF, error),
+      { initialProps: { streaming: true, error: null as Error | null } },
+    );
+
+    notifyMock.mockReset();
+    rerender({ streaming: false, error: err });
+
+    expect(notifyMock).not.toHaveBeenCalled();
   });
 });
 
@@ -174,7 +207,7 @@ describe('useDocumentTitle – JCEF environment (Notification API unavailable)',
     setHidden(true);
 
     const { rerender } = renderHook(
-      ({ streaming }) => useDocumentTitle('Test session', streaming, SOUND_OFF),
+      ({ streaming }) => useDocumentTitle('Test session', streaming, SOUND_OFF, null),
       { initialProps: { streaming: true } },
     );
 
