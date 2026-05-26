@@ -1,0 +1,223 @@
+# cli/ — `ccg` Terminal Launcher
+
+이 패키지는 JetBrains 플러그인과 **동일한 백엔드 런타임**을 터미널에서 직접 실행할 수 있게 해주는 독립 CLI 도구입니다. 사용자는 `curl | bash` 한 줄로 설치한 뒤 `ccg` 명령으로 호출합니다.
+
+## 목적
+
+- JetBrains 외부 환경에서도 동일한 WebView UX를 제공 (브라우저로 접속)
+- 플러그인과 분리된 별도 배포 채널 — 즉 npm 의존성 없이, **GitHub Releases만으로 완결**
+- 플러그인과 런타임이 같은 머신에서 충돌 없이 공존 (같은 19836 포트를 공유)
+
+## 패키지 경계 (중요)
+
+`cli/`는 **독립 패키지**입니다. 다음 원칙을 지킵니다:
+
+| 원칙 | 의미 |
+|------|------|
+| **단방향 의존** | `cli/`는 `backend/`, `webview/`의 빌드 산출물(`backend.mjs`, `webview/dist/`)만 소비. 소스 코드는 import 안 함. |
+| **런타임 독립** | `cli/` 내부 코드는 순수 Bash. Node/Python 의존 금지. (실행 대상인 backend는 당연히 node 필요) |
+| **빌드 독립** | `cli/run-tests.sh`만으로 cli 단위 테스트가 돌아야 함. 다른 패키지 빌드 산출물을 요구하지 않음. |
+| **버전 동조** | `cli` 자체 버전은 두지 않음. 항상 GitHub Releases tag = plugin = backend = ccg. |
+
+## 아키텍처
+
+```
+사용자 머신
+├── ~/.claude-code-gui/
+│   ├── bin/ccg              ← PATH에 추가됨
+│   ├── lib/{i18n,version,port,runtime,install_util}.sh
+│   ├── locales/{en,ko}.sh
+│   ├── uninstall.sh
+│   ├── .ccg-version         ← 설치된 버전 stamp
+│   └── runtimes/<ver>/      ← 런타임 캐시 (backend.mjs + webview/)
+│       ├── backend.mjs
+│       └── webview/
+└── ~/.zshrc (or .bashrc / fish)
+    └── # claude-code-gui (ccg) ↓  ... ↑  ← 멱등 마커
+```
+
+설치 후 `ccg run` 실행 시 흐름:
+
+```
+ccg run
+ │
+ ├─[port.sh]     GET http://127.0.0.1:19836/version
+ │
+ ├─ 응답 X       → [runtime.sh] 캐시 확인 → 없으면 다운로드 → spawn → 브라우저 open
+ ├─ 우리 백엔드  → [version.sh] semver 비교
+ │                  ├─ latest  → "이미 실행 중" + 브라우저 open
+ │                  └─ outdated → 사용자 프롬프트 → y면 kill → 새로 spawn
+ └─ Foreign      → 에러 + 종료
+```
+
+## 파일 책임 분리
+
+| 파일 | 책임 | 외부 의존 |
+|------|------|----------|
+| `bin/ccg` | 서브커맨드 라우팅, top-level orchestration | lib/* |
+| `lib/i18n.sh` | `t <key> [args...]` 함수, 로케일 감지 | locales/* |
+| `lib/version.sh` | semver 비교, `/version` JSON 파싱, GitHub Releases latest 조회 | curl |
+| `lib/port.sh` | 19836 점유 확인, 우리/foreign 판별, graceful kill | curl, lsof/netstat |
+| `lib/runtime.sh` | tgz 다운로드, 캐시 관리, 풀기 | curl, tar |
+| `lib/install_util.sh` | 셸 rc 감지, 멱등 마커로 PATH 추가/제거 | grep, awk |
+| `locales/en.sh` | 영어 메시지 (default + fallback) | — |
+| `locales/ko.sh` | 한국어 메시지 | — |
+| `install.sh` | 사전체크, 자산 다운로드, PATH 추가 (install_util.sh 활용) | curl, tar |
+| `uninstall.sh` | 디렉토리 제거, PATH 라인 제거 (install_util.sh 활용, fallback 인라인) | — |
+| `run-tests.sh` | bats 진입점 (cli 독립 실행용) | bats-core (submodule) |
+
+**의존 그래프**: `bin/ccg` → `lib/*` (서로 독립) → 시스템 도구. 사이클 금지.
+
+## 명령 인터페이스
+
+```
+ccg [run]          # 기본. 포트체크 → 버전비교 → spawn(foreground) → 브라우저 open
+ccg update         # 런타임을 latest로 강제 갱신 (실행 중이면 graceful kill 후 교체)
+ccg stop           # 19836의 우리 백엔드 graceful 종료 (3초 후 SIGKILL fallback)
+ccg version        # 설치된 ccg / 캐시된 런타임 / 실행 중 백엔드 버전 표시
+ccg doctor         # 환경 진단 (node 경로, PATH, 캐시, 포트, rc 파일 상태)
+ccg self-update    # cli 자체 업데이트 (install.sh 재실행)
+ccg uninstall      # 제거
+```
+
+**라이프사이클**: 모든 spawn은 **foreground**. 사용자가 Ctrl+C로 종료 가능, 로그가 터미널에 그대로 흐름. `trap SIGINT SIGTERM`로 자식 정리.
+
+## 버저닝 모델
+
+**ccg = 런타임 = 플러그인 = GitHub Releases tag** (완전 통일).
+
+| 출처 | 값 | 비교 기준 |
+|------|----|---------| 
+| 설치된 ccg | `~/.claude-code-gui/.ccg-version` 파일 | install.sh가 작성 |
+| 캐시된 런타임 | `runtimes/<ver>/` 디렉토리명 | — |
+| 실행 중 백엔드 | `GET /version` JSON 응답 | semver 비교 |
+| 최신 | `gh api /repos/.../releases/latest` → `tag_name` | `v` 접두어 제거 후 비교 |
+
+semver 비교는 `lib/version.sh::compare_semver a b` — 결과: `-1`/`0`/`1`.
+
+## i18n 규칙
+
+**코드 vs 출력 구분**:
+- **코드**: 변수명, 함수명, 주석, 에러 stack — 영어 (프로젝트 공식 공용언어)
+- **사용자 출력**: 모두 `t <key> [args...]` 경유 — 절대 출력 함수에 raw 문자열 박지 않음
+
+```bash
+# 잘못된 예
+echo "Already running v$ver"
+
+# 올바른 예
+t running_already "$ver"
+```
+
+**로케일 감지 순서** (`lib/i18n.sh::detect_locale`):
+1. `CCG_LANG` env (명시적 override)
+2. `LC_ALL` → `LC_MESSAGES` → `LANG` 의 `<ko>_<KR>.UTF-8` 형식에서 앞 2글자
+3. fallback: `en`
+
+**키 네이밍**: snake_case, flat. 카테고리는 prefix로 구분 (`err_*`, `update_*`, `doctor_*`, `version_*`, `install_*`).
+
+**fallback 정책**: 특정 로케일에 키가 없으면 → `en`에서 lookup → 그것도 없으면 `<<key>>` sentinel 출력 (개발 중 누락 감지용).
+
+**구현 형태** (bash 3.2 호환):
+```bash
+# locales/en.sh
+MSG_en_running_already="Already running v%s on port 19836..."
+
+# locales/ko.sh
+MSG_ko_running_already="이미 v%s가 19836 포트에서 실행 중입니다..."
+
+# lib/i18n.sh::t()
+local var="MSG_${CCG_ACTIVE_LOCALE}_${key}"
+local template="${!var:-}"  # indirect expansion
+printf "$template" "$@"
+```
+
+## TDD 규칙
+
+이 패키지는 **모든 lib/* 및 bin/ccg가 TDD로 개발**됩니다.
+
+### 사이클
+
+```
+1. test/<module>.bats에 RED 테스트 작성
+2. ./cli/run-tests.sh test/<module>.bats → 실패 확인
+3. lib/<module>.sh 최소 구현
+4. 다시 실행 → GREEN
+5. 리팩토링 → GREEN 유지
+```
+
+### 테스트 작성 가이드
+
+- 각 함수마다 ≥ 1개 happy path + ≥ 1개 edge case 테스트
+- 외부 명령(`curl`, `lsof`, `node`, `tar`)은 **PATH 앞에 mock 디렉토리 inject**해서 모킹:
+  ```bash
+  setup() {
+    export MOCK_BIN="$BATS_TEST_TMPDIR/bin"
+    mkdir -p "$MOCK_BIN"
+    PATH="$MOCK_BIN:$PATH"
+  }
+  ```
+- `cli/test/helpers/`에 공통 mock 헬퍼 둠 (`mock_curl_response`, `mock_lsof`, etc.)
+
+### 절대 금지
+
+- **테스트 없이 lib/* 함수 추가** — bin/ccg의 orchestration 로직조차 테스트 가능한 작은 함수로 분해 필요
+- **테스트가 RED 한번 거치지 않고 바로 GREEN** — 그건 테스트가 아무것도 안 검증한다는 의미
+
+## 빌드/배포
+
+### 자산
+
+GitHub Releases의 각 태그에 다음 두 개를 첨부:
+
+| 자산 | 내용 | 소비자 |
+|------|------|--------|
+| `claude-code-gui-runtime-v<ver>.tgz` | `backend.mjs` + `webview/` 디렉토리 | ccg가 다운로드 |
+| `ccg-v<ver>.tar.gz` | `cli/bin/` + `cli/lib/` + `cli/locales/` + `cli/install.sh` + `cli/uninstall.sh` (test 제외) | install.sh가 다운로드 |
+
+### 빌드 커맨드
+
+```bash
+./scripts/build.sh runtime-tgz   # backend + webview 빌드 후 tgz 생성
+./scripts/build.sh ccg-tgz       # cli/ 패키징 (test, CLAUDE.md 제외)
+./scripts/build.sh cli-test      # bats 테스트 실행
+```
+
+### 릴리즈 흐름
+
+`/deploy` 스킬이 8단계 중 자산 첨부 단계에서 위 두 tgz를 `gh release upload`로 첨부. 기존 JetBrains 마켓플레이스 zip은 그대로.
+
+## 알려진 제약
+
+| 제약 | 이유 |
+|------|------|
+| **bash 3.2+ 호환** | macOS 기본 bash가 3.2이므로 `declare -A`(associative array) 미사용. i18n은 variable-prefix 패턴(`MSG_<lang>_<key>` + indirect expansion `${!var}`)으로 구현. |
+| **node ≥ 18 필요** | backend.mjs가 ES2022 + native fetch 사용 |
+| **Windows 미지원 (v1)** | bash 의존. WSL 또는 git-bash는 best-effort. PowerShell 포트는 향후 별도 작업. |
+| **POSIX 도구 의존** | `curl`, `tar`, `lsof`(unix)/`netstat`(win-WSL) 존재 가정. doctor가 진단. |
+
+## 보안 / 신뢰 모델
+
+- 모든 다운로드는 GitHub Releases HTTPS만 신뢰. 별도 checksum 검증 없음 (결정사항).
+- `install.sh`는 **rc 파일을 수정**합니다 — 멱등 마커(`# claude-code-gui (ccg) ↓ ... ↑`)로 안전하게 처리. 마커 안의 라인만 추가/제거.
+- `~/.claude-code-gui/` 외 다른 경로에는 절대 쓰지 않음 (예외: rc 파일).
+
+## JetBrains 플러그인과의 관계 (사용자 안내 필수)
+
+ccg가 갱신하는 것은 **터미널 실행용 백엔드 런타임뿐**입니다. JetBrains IDE에 설치된 플러그인 자체는 마켓플레이스를 통해 별도로 업데이트해야 합니다. 모든 업데이트 프롬프트에 이 caution을 표시 (i18n 키: `caution_marketplace`).
+
+플러그인과 ccg가 같은 머신에서 19836을 공유하므로, **누가 먼저 띄웠든 같은 백엔드를 본다**. `/version` 응답이 일치하면 그대로 재사용, 버전이 다르면 사용자에게 교체 여부 확인.
+
+## 디버깅 팁
+
+- **백엔드 stdout/stderr**: foreground 모드이므로 터미널에 그대로 흐름. 별도 로그 파일 없음.
+- **i18n 누락 키**: 키 자체가 출력됨 (`>>>> running_already <<<<` 식으로 wrap하면 더 잘 보임 — i18n.sh에서 처리)
+- **모킹 디버깅**: bats 테스트 실행 시 `--show-output-of-passing-tests` 플래그로 stdout 확인
+- **`ccg doctor`**: 첫 진단 도구. 환경 문제 대부분 여기서 잡힘.
+
+## 미해결 / Out of Scope
+
+- Windows native 지원 — PowerShell 포트 별도 작업
+- 자동 업데이트 (백그라운드 체크) — 명시적 `ccg update` 사용자 의도 존중
+- 멀티 포트 (`ccg ports` 같은) — 단일 19836 사용. 미래 작업 시 PORT env 도입.
+- 로그 파일 옵션 — foreground 만으로 충분. 필요시 사용자가 `ccg | tee log.txt`.

@@ -46,6 +46,20 @@ if [[ -z "$ZIP" ]]; then
 fi
 echo "Build artifact: $ZIP"
 
+# --- CLI / ccg runtime + cli tarballs (for the `ccg` terminal launcher) ---
+echo ""
+echo "--- runtime tgz + ccg tgz ---"
+bash "$ROOT/scripts/build.sh" runtime-tgz
+bash "$ROOT/scripts/build.sh" ccg-tgz
+RUNTIME_TGZ="$ROOT/dist/claude-code-gui-runtime-v${VERSION}.tgz"
+CCG_TGZ="$ROOT/dist/ccg-v${VERSION}.tar.gz"
+if [[ ! -f "$RUNTIME_TGZ" || ! -f "$CCG_TGZ" ]]; then
+  echo "ERROR: Expected tgz artifacts not found:" >&2
+  echo "  $RUNTIME_TGZ" >&2
+  echo "  $CCG_TGZ" >&2
+  exit 1
+fi
+
 # --- Step 6: Git commit, tag, push ---
 echo ""
 echo "--- git commit & tag ---"
@@ -80,6 +94,9 @@ fi
 gh release create "$TAG" \
   --title "${TAG}" \
   --notes "$RELEASE_BODY"
+
+echo "--- Upload tgz assets to release ---"
+gh release upload "$TAG" "$RUNTIME_TGZ" "$CCG_TGZ"
 
 # --- Step 7: Publish to Marketplace ---
 echo ""

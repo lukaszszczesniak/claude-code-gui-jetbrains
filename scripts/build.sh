@@ -28,6 +28,12 @@ WebView (webview/):
   wv-test-cov    pnpm test:coverage (coverage report)
   wv-test-ui     pnpm test:ui (browser dashboard)
 
+CLI / ccg (cli/):
+  cli-test       Run bats test suite (passes extra args to bats)
+  runtime-tgz    Create dist/claude-code-gui-runtime-v<ver>.tgz
+                   (requires be-build + wv-build first)
+  ccg-tgz        Create dist/ccg-v<ver>.tar.gz from cli/{bin,lib,locales,uninstall.sh}
+
 Plugin (Gradle):
   build          gradlew build
   run-ide        gradlew runIde (CLAUDE_DEV_MODE=true)
@@ -63,6 +69,54 @@ case "${1:-}" in
   wv-test-watch)  pnpm -C "$ROOT/webview" test:watch ;;
   wv-test-cov)    pnpm -C "$ROOT/webview" test:coverage ;;
   wv-test-ui)     pnpm -C "$ROOT/webview" test:ui ;;
+
+  # --- CLI / ccg packaging ---
+  cli-test)
+    bash "$ROOT/cli/run-tests.sh" "${@:2}"
+    ;;
+  runtime-tgz)
+    version=$(grep -E '"version"' "$ROOT/backend/package.json" | head -1 \
+              | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+    if [[ -z "$version" ]]; then
+      echo "Could not read version from backend/package.json" >&2; exit 1
+    fi
+    if [[ ! -f "$ROOT/backend/dist/backend.mjs" ]]; then
+      echo "backend/dist/backend.mjs not found. Run 'be-build' first." >&2; exit 1
+    fi
+    if [[ ! -d "$ROOT/webview/dist" ]]; then
+      echo "webview/dist not found. Run 'wv-build' first." >&2; exit 1
+    fi
+    mkdir -p "$ROOT/dist"
+    stage="$ROOT/dist/.stage-runtime-v$version"
+    rm -rf "$stage"
+    mkdir -p "$stage/webview"
+    cp "$ROOT/backend/dist/backend.mjs" "$stage/"
+    cp -R "$ROOT/webview/dist/." "$stage/webview/"
+    out="$ROOT/dist/claude-code-gui-runtime-v$version.tgz"
+    tar -czf "$out" -C "$stage" backend.mjs webview
+    rm -rf "$stage"
+    echo "Created: $out"
+    ;;
+  ccg-tgz)
+    version=$(grep -E '"version"' "$ROOT/backend/package.json" | head -1 \
+              | sed -E 's/.*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+    if [[ -z "$version" ]]; then
+      echo "Could not read version from backend/package.json" >&2; exit 1
+    fi
+    mkdir -p "$ROOT/dist"
+    stage="$ROOT/dist/.stage-ccg-v$version"
+    rm -rf "$stage"
+    mkdir -p "$stage"
+    cp -R "$ROOT/cli/bin" "$stage/"
+    cp -R "$ROOT/cli/lib" "$stage/"
+    cp -R "$ROOT/cli/locales" "$stage/"
+    cp "$ROOT/cli/uninstall.sh" "$stage/"
+    chmod +x "$stage/bin/ccg" "$stage/uninstall.sh"
+    out="$ROOT/dist/ccg-v$version.tar.gz"
+    tar -czf "$out" -C "$stage" .
+    rm -rf "$stage"
+    echo "Created: $out"
+    ;;
 
   # --- Plugin (Gradle) ---
   build)          "$ROOT/gradlew" -p "$ROOT" build ;;

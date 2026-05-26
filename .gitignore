@@ -30,6 +30,9 @@ backend/node_modules/
 backend/dist/
 src/main/resources/backend/
 
+# Release artifacts (ccg tgz, runtime tgz)
+/dist/
+
 # TypeScript build info
 *.tsbuildinfo
 

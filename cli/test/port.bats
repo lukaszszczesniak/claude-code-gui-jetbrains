@@ -1,0 +1,138 @@
+#!/usr/bin/env bats
+# Tests for cli/lib/port.sh
+
+load 'helpers/common'
+
+setup() {
+  isolate_env
+  # version.sh provides parse_backend_version, which port.sh uses
+  # shellcheck source=../lib/version.sh
+  source "$CLI_LIB/version.sh"
+  # shellcheck source=../lib/port.sh
+  source "$CLI_LIB/port.sh"
+}
+
+# ─── port_status: free | ours | foreign ───────────────────────
+
+@test "port_status: free when curl fails and lsof finds nothing" {
+  mock_cmd_with_logic curl 'exit 7'
+  mock_cmd_with_logic lsof 'exit 1'
+  run port_status
+  [ "$status" -eq 0 ]
+  [ "$output" = "free" ]
+}
+
+@test "port_status: ours when /version returns valid JSON" {
+  mock_cmd_with_logic curl '
+    case "$*" in
+      *127.0.0.1:19836/version*) printf "%s" "{\"version\":\"0.15.0\"}" ;;
+      *) exit 1 ;;
+    esac
+  '
+  mock_cmd_with_logic lsof 'exit 0'
+  run port_status
+  [ "$status" -eq 0 ]
+  [ "$output" = "ours" ]
+}
+
+@test "port_status: foreign when /version unreachable but lsof finds a process" {
+  mock_cmd_with_logic curl 'exit 7'
+  mock_cmd_with_logic lsof 'printf "%s\n" "12345"'
+  run port_status
+  [ "$status" -eq 0 ]
+  [ "$output" = "foreign" ]
+}
+
+@test "port_status: foreign when /version returns non-JSON HTML (e.g. some other server)" {
+  mock_cmd_with_logic curl '
+    case "$*" in
+      *127.0.0.1:19836/version*) printf "%s" "<html>404</html>" ;;
+      *) exit 1 ;;
+    esac
+  '
+  mock_cmd_with_logic lsof 'printf "%s\n" "12345"'
+  run port_status
+  [ "$status" -eq 0 ]
+  [ "$output" = "foreign" ]
+}
+
+# ─── get_backend_version_via_port ─────────────────────────────
+
+@test "get_backend_version_via_port: returns version on success" {
+  mock_cmd_with_logic curl '
+    case "$*" in
+      *127.0.0.1:19836/version*) printf "%s" "{\"version\":\"0.15.0\"}" ;;
+      *) exit 1 ;;
+    esac
+  '
+  run get_backend_version_via_port
+  [ "$status" -eq 0 ]
+  [ "$output" = "0.15.0" ]
+}
+
+@test "get_backend_version_via_port: returns nonzero when unreachable" {
+  mock_cmd_with_logic curl 'exit 7'
+  run get_backend_version_via_port
+  [ "$status" -ne 0 ]
+}
+
+@test "get_backend_version_via_port: returns nonzero when response not parseable" {
+  mock_cmd_with_logic curl 'printf "%s" "<html>404</html>"'
+  run get_backend_version_via_port
+  [ "$status" -ne 0 ]
+}
+
+# ─── find_pid_on_port: extract PIDs from lsof output ──────────
+
+@test "find_pid_on_port: returns single PID from lsof -ti" {
+  mock_cmd_with_logic lsof 'printf "%s\n" "54321"'
+  run find_pid_on_port
+  [ "$status" -eq 0 ]
+  [ "$output" = "54321" ]
+}
+
+@test "find_pid_on_port: returns first PID if multiple" {
+  mock_cmd_with_logic lsof 'printf "%s\n%s\n" "11111" "22222"'
+  run find_pid_on_port
+  [ "$status" -eq 0 ]
+  # Pick whatever the implementation chooses, but must be one of them
+  [[ "$output" == "11111" || "$output" == "22222" ]]
+}
+
+@test "find_pid_on_port: nonzero when no process found" {
+  mock_cmd_with_logic lsof 'exit 1'
+  run find_pid_on_port
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+}
+
+# ─── graceful_kill_port: send SIGTERM, escalate if needed ────
+
+@test "graceful_kill_port: returns 0 when no process to kill" {
+  mock_cmd_with_logic lsof 'exit 1'
+  # kill should never be called in this case, but mock it just in case
+  mock_cmd_with_logic kill 'exit 0'
+  run graceful_kill_port
+  [ "$status" -eq 0 ]
+}
+
+@test "graceful_kill_port: sends SIGTERM to discovered PID" {
+  # lsof returns a PID once, then "no process" so loop exits quickly
+  cat > "$MOCK_BIN/lsof" <<EOF
+#!/usr/bin/env bash
+if [[ -f "$BATS_TEST_TMPDIR/kill.log" ]]; then exit 1; fi
+printf '%s\n' "99999"
+EOF
+  chmod +x "$MOCK_BIN/lsof"
+
+  # Override the function seam directly (works because we call
+  # graceful_kill_port in the same shell, not via `run`).
+  _kill_pid() {
+    printf '%s\n' "$*" >> "$BATS_TEST_TMPDIR/kill.log"
+  }
+
+  graceful_kill_port
+  [ "$?" -eq 0 ]
+  [ -f "$BATS_TEST_TMPDIR/kill.log" ]
+  grep -q -- '-TERM 99999' "$BATS_TEST_TMPDIR/kill.log"
+}

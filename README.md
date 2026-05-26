@@ -123,6 +123,22 @@ The same Claude Code GUI you love in Cursor and VS Code, now available in JetBra
 - `Ctrl+Shift+C` — Open Claude Code panel
 - `Cmd+N` / `Ctrl+N` (panel focused) — New session tab
 
+### Terminal Launcher (`ccg`)
+
+Prefer your own browser over the IDE panel? Install the terminal launcher with one line:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yhk1038/claude-code-gui-jetbrains/main/cli/install.sh | bash
+```
+
+Then from any project directory:
+
+```bash
+ccg
+```
+
+Same backend, same UI, opened in your default browser on `http://localhost:19836`. Coexists with the JetBrains plugin on port 19836. See [cli/README.md](cli/README.md) for details.
+
 ## Android Studio Compatibility
 
 Android Studio ships with a JetBrains Runtime (JBR) that does **not** include JCEF (Chromium Embedded Framework). This plugin's WebView UI relies on JCEF, so it will display a guidance panel instead of the chat UI when launched on the default Android Studio runtime.
