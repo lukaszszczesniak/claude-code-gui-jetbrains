@@ -1,3 +1,5 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 buildscript {
     repositories {
         mavenCentral()
@@ -21,14 +23,25 @@ repositories {
     mavenCentral()
     intellijPlatform {
         defaultRepositories()
+        // EAP / nightly builds (262.* and beyond) live in the snapshots repo, not
+        // the release repo defaultRepositories() configures. Without this the
+        // verifyPlugin task can't resolve EAP IDE artifacts. Needed for #50.
+        snapshots()
     }
 }
 
 dependencies {
     intellijPlatform {
         val platformVersion = providers.gradleProperty("platformVersion").getOrElse("2025.3.2")
+        // PLATFORM_TYPE switches the sandbox IDE for runIde. Defaults to IntelliJ
+        // IDEA Community; set PLATFORM_TYPE=RD to launch a Rider sandbox instead
+        // (used to manually reproduce Marketplace review #140014 / #50).
+        val platformType = providers.environmentVariable("PLATFORM_TYPE").getOrElse("IC")
 
-        intellijIdea(platformVersion)
+        when (platformType) {
+            "RD" -> create("RD", platformVersion, useInstaller = false)
+            else -> intellijIdea(platformVersion)
+        }
         bundledPlugin("org.jetbrains.plugins.terminal")
     }
 
@@ -124,7 +137,10 @@ intellijPlatform {
         }
         ideaVersion {
             sinceBuild = "242"
-            untilBuild = "261.*"
+            // Open-ended until-build: forward-compatible with all future IntelliJ
+            // Platform releases. Verified internal-API-clean against IDEA 2026.2 EAP
+            // and Rider 2026.2 EAP via the verifyPlugin matrix below (#50, #53).
+            untilBuild = provider { null }
         }
         changeNotes = """
             <h3>0.16.1 - Restore WebView panel on IntelliJ 2026.1+</h3>
@@ -158,6 +174,19 @@ intellijPlatform {
             ide("IC", "2024.3.7")
             // Android Studio Ladybug (2024.2.2) — primary target of issue #34
             ide("AI", "2024.2.2.13")
+            // Rider 2026.1.2 — Marketplace review #140014 reports incompatibility (#53)
+            // useInstaller=false: Rider installer downloads are not supported by the
+            // plugin verifier task (see intellij-platform-gradle-plugin #1852).
+            ide("RD", "2026.1.2", false)
+            // 2026.2 EAP coverage — driving #50 (Allow IDE EAP versions). Both IDEA
+            // Ultimate and Rider are checked because review #140014 came from a Rider
+            // user, and forward-compat needs to hold on both lines before we drop
+            // untilBuild. EAP artifact naming is product-specific in the JetBrains
+            // snapshots repo: IU is published with the build-number-based
+            // "<build>-EAP-SNAPSHOT" suffix, while Rider uses the marketing
+            // "<version>-EAP<n>-SNAPSHOT" form.
+            ide("IU", "262.6653.22-EAP-SNAPSHOT", false)
+            ide("RD", "2026.2-EAP4-SNAPSHOT", false)
         }
     }
 }
@@ -325,7 +354,15 @@ tasks {
         }
     }
 
-    named("processResources") {
+    named<ProcessResources>("processResources") {
         dependsOn("verifyBuildVersions")
+        // Inject pluginVersion into plugin-info.properties so the runtime can read it
+        // without touching internal PluginManager APIs (which were marked
+        // @ApiStatus.Internal in IntelliJ 2026.2). See NodeBackendService.getPluginVersion().
+        val pluginVer = providers.gradleProperty("pluginVersion").get()
+        inputs.property("pluginVersion", pluginVer)
+        filesMatching("plugin-info.properties") {
+            expand("version" to pluginVer)
+        }
     }
 }

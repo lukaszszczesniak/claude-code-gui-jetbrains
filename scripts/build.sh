@@ -38,8 +38,10 @@ Plugin (Gradle):
   build          gradlew build
   run-ide        gradlew runIde (CLAUDE_DEV_MODE=true)
                    PLATFORM_VERSION=<ver> overrides IDE version
+                   PLATFORM_TYPE=<IC|RD> picks the IDE product (default IC)
                    e.g. PLATFORM_VERSION=2026.1.2 ./scripts/build.sh run-ide
                         PLATFORM_VERSION=2025.3.2 ./scripts/build.sh run-ide
+                        PLATFORM_TYPE=RD PLATFORM_VERSION=2026.1.2 ./scripts/build.sh run-ide
                    Each version gets an isolated sandbox under build/idea-sandbox/.
   run-ide-installed
                  Launch a cached IDE directly with a pre-built plugin zip installed.
@@ -51,6 +53,8 @@ Plugin (Gradle):
   clean          gradlew clean
   test           gradlew test
   test-cov       gradlew koverHtmlReport (Kotlin coverage)
+  verify-plugin  gradlew verifyPlugin (runs JetBrains Plugin Verifier across
+                   the pluginVerification.ides matrix in build.gradle.kts)
 
 Combined:
   full-build     be-build + wv-build + gradlew build
@@ -187,6 +191,7 @@ EOF
   clean)          "$ROOT/gradlew" -p "$ROOT" clean ;;
   test)           "$ROOT/gradlew" -p "$ROOT" test ;;
   test-cov)       "$ROOT/gradlew" -p "$ROOT" koverHtmlReport ;;
+  verify-plugin)  "$ROOT/gradlew" -p "$ROOT" verifyPlugin ;;
 
   # --- Combined ---
   full-build)

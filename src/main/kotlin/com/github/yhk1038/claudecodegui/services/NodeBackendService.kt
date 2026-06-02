@@ -2,12 +2,11 @@ package com.github.yhk1038.claudecodegui.services
 
 import com.github.yhk1038.claudecodegui.bridge.NodeProcessManager
 import com.github.yhk1038.claudecodegui.bridge.RpcWebSocketClient
-import com.intellij.ide.plugins.PluginManagerCore
+import java.util.Properties
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.extensions.PluginId
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -283,10 +282,14 @@ class NodeBackendService : Disposable {
     }
 
     /**
-     * Get the current plugin version from the IDE's plugin descriptor.
+     * Plugin version, injected by Gradle at processResources time into
+     * /plugin-info.properties. Avoids IntelliJ's internal PluginManager APIs,
+     * which were marked @ApiStatus.Internal in 2026.2.
      */
     private fun getPluginVersion(): String? {
-        return PluginManagerCore.getPlugin(PluginId.getId(PLUGIN_ID))?.version
+        return javaClass.getResourceAsStream("/plugin-info.properties")?.use { stream ->
+            Properties().apply { load(stream) }.getProperty("version")?.takeIf { it.isNotBlank() }
+        }
     }
 
     /**
@@ -374,7 +377,6 @@ class NodeBackendService : Disposable {
 
     companion object {
         const val DEFAULT_PORT = 19836
-        private const val PLUGIN_ID = "com.github.yhk1038.claude-code-gui"
 
         fun getInstance(): NodeBackendService =
             ApplicationManager.getApplication().getService(NodeBackendService::class.java)
