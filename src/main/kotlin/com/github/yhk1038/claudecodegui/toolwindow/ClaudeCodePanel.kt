@@ -10,6 +10,8 @@ import com.intellij.ide.BrowserUtil
 import com.intellij.ide.dnd.DnDEvent
 import com.intellij.ide.dnd.DnDManager
 import com.intellij.ide.dnd.DnDTarget
+import com.intellij.ide.dnd.FileCopyPasteUtil
+import com.intellij.ide.dnd.TransferableWrapper
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileChooser.FileChooser
@@ -22,6 +24,7 @@ import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiElement
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefJSQuery
 import kotlinx.coroutines.CompletableDeferred
@@ -563,43 +566,30 @@ class ClaudeCodePanel(
                 null -> return
                 is File -> add(value.absolutePath, value.isDirectory)
                 is VirtualFile -> add(value.path, value.isDirectory)
+                is PsiElement -> value.containingFile?.virtualFile?.let { add(it.path, it.isDirectory) }
                 is Array<*> -> value.forEach(::addFromValue)
                 is Iterable<*> -> value.forEach(::addFromValue)
                 is String -> parseDroppedText(value).forEach { add(it, null) }
-                else -> {
-                    val path = runCatching {
-                        val method = value.javaClass.methods.firstOrNull {
-                            it.name == "getPath" && it.parameterCount == 0 && it.returnType == String::class.java
-                        }
-                        method?.invoke(value) as? String
-                    }.getOrNull()
-                    val isDirectory = runCatching {
-                        val method = value.javaClass.methods.firstOrNull {
-                            it.name == "isDirectory" && it.parameterCount == 0 && it.returnType == Boolean::class.javaPrimitiveType
-                        }
-                        method?.invoke(value) as? Boolean
-                    }.getOrNull()
-                    add(path, isDirectory)
-                }
+                else -> logger.debug(
+                    "extractDroppedFiles(transferable): ignoring unknown payload of type ${value.javaClass.name}"
+                )
             }
         }
 
         if (transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-            addFromValue(transferable.getTransferData(DataFlavor.javaFileListFlavor))
+            runCatching { addFromValue(transferable.getTransferData(DataFlavor.javaFileListFlavor)) }
+                .onFailure { logger.debug("getTransferData(javaFileListFlavor) failed", it) }
         }
 
-        runCatching {
-            val util = Class.forName("com.intellij.ide.dnd.FileCopyPasteUtil")
-            val method = util.methods.firstOrNull {
-                it.name == "getFileList" && it.parameterTypes.size == 1 && it.parameterTypes[0] == Transferable::class.java
-            }
-            addFromValue(method?.invoke(null, transferable))
-        }
+        // FileCopyPasteUtil normalizes the various OS-specific clipboard/DnD encodings
+        // (Finder's text/uri-list, Explorer's CF_HDROP, etc.) into java.io.File entries.
+        runCatching { FileCopyPasteUtil.getFileList(transferable) }
+            .onSuccess { addFromValue(it) }
+            .onFailure { logger.debug("FileCopyPasteUtil.getFileList failed", it) }
 
         for (flavor in transferable.transferDataFlavors) {
-            runCatching {
-                addFromValue(transferable.getTransferData(flavor))
-            }
+            runCatching { addFromValue(transferable.getTransferData(flavor)) }
+                .onFailure { logger.debug("getTransferData($flavor) failed", it) }
         }
 
         return result.values.toList()
@@ -618,68 +608,24 @@ class ClaudeCodePanel(
             )
         }
 
-        fun addFromPsiElement(value: Any): Boolean {
-            val virtualFile = runCatching {
-                val containingFile = value.javaClass.methods.firstOrNull {
-                    it.name == "getContainingFile" && it.parameterCount == 0
-                }?.invoke(value)
-                containingFile?.javaClass?.methods?.firstOrNull {
-                    it.name == "getVirtualFile" && it.parameterCount == 0
-                }?.invoke(containingFile) as? VirtualFile
-            }.getOrNull()
-            if (virtualFile != null) {
-                add(virtualFile.path, virtualFile.isDirectory)
-                return true
-            }
-
-            val file = runCatching {
-                value.javaClass.methods.firstOrNull {
-                    it.name == "getVirtualFile" && it.parameterCount == 0
-                }?.invoke(value) as? VirtualFile
-            }.getOrNull()
-            if (file != null) {
-                add(file.path, file.isDirectory)
-                return true
-            }
-            return false
-        }
-
         fun addFromValue(value: Any?) {
             when (value) {
                 null -> return
                 is File -> add(value.absolutePath, value.isDirectory)
                 is VirtualFile -> add(value.path, value.isDirectory)
+                is PsiElement -> value.containingFile?.virtualFile?.let { add(it.path, it.isDirectory) }
                 is Transferable -> extractDroppedFiles(value).forEach { add(it.path, it.isDirectory) }
+                // IDE DnD payloads (project tree, "Find Usages", etc.) implement TransferableWrapper.
+                is TransferableWrapper -> {
+                    value.asFileList()?.forEach(::addFromValue)
+                    value.psiElements?.forEach(::addFromValue)
+                }
                 is Array<*> -> value.forEach(::addFromValue)
                 is Iterable<*> -> value.forEach(::addFromValue)
                 is String -> parseDroppedText(value).forEach { add(it, null) }
-                else -> {
-                    if (addFromPsiElement(value)) return
-
-                    listOf("asFileList", "getPsiElements", "getVirtualFiles", "getFiles", "getTreeNodes").forEach { methodName ->
-                        runCatching {
-                            value.javaClass.methods.firstOrNull {
-                                it.name == methodName && it.parameterCount == 0
-                            }?.invoke(value)
-                        }.onSuccess { methodResult ->
-                            if (methodResult != null) {
-                                addFromValue(methodResult)
-                            }
-                        }
-                    }
-
-                    val path = runCatching {
-                        value.javaClass.methods.firstOrNull {
-                            it.name == "getPath" && it.parameterCount == 0 && it.returnType == String::class.java
-                        }?.invoke(value) as? String
-                    }.getOrNull()
-                    val isDirectory = runCatching {
-                        value.javaClass.methods.firstOrNull {
-                            it.name == "isDirectory" && it.parameterCount == 0 && it.returnType == Boolean::class.javaPrimitiveType
-                        }?.invoke(value) as? Boolean
-                    }.getOrNull()
-                    add(path, isDirectory)
-                }
+                else -> logger.debug(
+                    "extractDroppedFiles(attached): ignoring unknown payload of type ${value.javaClass.name}"
+                )
             }
         }
 
