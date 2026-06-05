@@ -61,8 +61,6 @@ export function ChatInput() {
     error: attachmentError,
     isDragOver,
     handlePaste,
-    handleDragOver,
-    handleDragLeave,
     handleDrop,
     setIsDragOver,
   } = useAttachments();
@@ -414,16 +412,13 @@ export function ChatInput() {
 
   return (
     <div className="max-w-[44rem] mx-auto px-4 pb-[14px] pt-2">
-      {/* 메인 인풋 컨테이너 */}
+      {/* 메인 인풋 컨테이너 — drag/drop은 window 레벨 리스너가 패널 전체에서 처리한다. */}
       <div
         className={`
           relative rounded-lg border bg-surface-raised
           transition-colors duration-150
           ${isDragOver ? 'border-border-focus bg-accent-primary/5' : isFocused && mode !== 'plan' ? modeConfig.borderColor : 'border-border-default'}
         `}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
       >
         {/* Mention dropdown */}
         {mention.isActive && !palette.showSlashCommands && (

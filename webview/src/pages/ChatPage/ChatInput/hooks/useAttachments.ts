@@ -12,8 +12,6 @@ export interface UseAttachmentsReturn {
   isDragOver: boolean;
   setIsDragOver: (v: boolean) => void;
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
-  handleDragOver: (e: React.DragEvent) => void;
-  handleDragLeave: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent) => void;
 }
 
@@ -113,18 +111,6 @@ export function useAttachments(): UseAttachmentsReturn {
     }
   }, [addImageAttachment]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.types.includes('Files')) {
-      setIsDragOver(true);
-    }
-  }, [setIsDragOver]);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-    setIsDragOver(false);
-  }, [setIsDragOver]);
-
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -154,8 +140,6 @@ export function useAttachments(): UseAttachmentsReturn {
     isDragOver,
     setIsDragOver,
     handlePaste,
-    handleDragOver,
-    handleDragLeave,
     handleDrop,
-  }), [attachments, addImageAttachment, addFileAttachment, addFolderAttachment, removeAttachment, clearAttachments, error, isDragOver, setIsDragOver, handlePaste, handleDragOver, handleDragLeave, handleDrop]);
+  }), [attachments, addImageAttachment, addFileAttachment, addFolderAttachment, removeAttachment, clearAttachments, error, isDragOver, setIsDragOver, handlePaste, handleDrop]);
 }
