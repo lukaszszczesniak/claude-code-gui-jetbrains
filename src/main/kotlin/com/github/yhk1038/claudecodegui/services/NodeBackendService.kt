@@ -184,28 +184,42 @@ class NodeBackendService : Disposable {
     }
 
     private fun startBackend() {
+        // In dev mode the plugin version is rarely bumped between code changes, so version-
+        // based reuse silently keeps a stale backend in front of every edit/build cycle. Force
+        // a fresh spawn so RPC handlers and IPC routes added during the same session actually
+        // take effect.
+        val devMode = System.getProperty("claude.dev.mode", "false").toBoolean() ||
+            System.getenv("CLAUDE_DEV_MODE") == "true"
+
         // Check if a Node.js process is already running on the default port
         if (isBackendAlreadyRunning(DEFAULT_PORT)) {
-            val backendVersion = getBackendVersion(DEFAULT_PORT)
-            val pluginVersion = getPluginVersion()
-
-            val shouldReplace = when {
-                backendVersion == null -> true  // No /version endpoint → pre-upgrade backend
-                pluginVersion == null -> false  // Can't determine plugin version → safe to reuse
-                else -> isVersionLower(backendVersion, pluginVersion)
-            }
-
-            if (shouldReplace) {
-                logger.info("Replacing stale backend (backend=$backendVersion, plugin=$pluginVersion)")
+            if (devMode) {
+                logger.info("Dev mode: replacing existing backend on port $DEFAULT_PORT to pick up local code changes")
                 killProcessOnPort(DEFAULT_PORT)
                 Thread.sleep(500)
                 // Fall through to spawn a new process below
             } else {
-                logger.info("Reusing existing Node.js backend on port $DEFAULT_PORT (backend=$backendVersion, plugin=$pluginVersion)")
-                portDeferred = CompletableDeferred()
-                portDeferred.complete(DEFAULT_PORT)
-                connectRpcWebSocket(DEFAULT_PORT)
-                return
+                val backendVersion = getBackendVersion(DEFAULT_PORT)
+                val pluginVersion = getPluginVersion()
+
+                val shouldReplace = when {
+                    backendVersion == null -> true  // No /version endpoint → pre-upgrade backend
+                    pluginVersion == null -> false  // Can't determine plugin version → safe to reuse
+                    else -> isVersionLower(backendVersion, pluginVersion)
+                }
+
+                if (shouldReplace) {
+                    logger.info("Replacing stale backend (backend=$backendVersion, plugin=$pluginVersion)")
+                    killProcessOnPort(DEFAULT_PORT)
+                    Thread.sleep(500)
+                    // Fall through to spawn a new process below
+                } else {
+                    logger.info("Reusing existing Node.js backend on port $DEFAULT_PORT (backend=$backendVersion, plugin=$pluginVersion)")
+                    portDeferred = CompletableDeferred()
+                    portDeferred.complete(DEFAULT_PORT)
+                    connectRpcWebSocket(DEFAULT_PORT)
+                    return
+                }
             }
         }
 
