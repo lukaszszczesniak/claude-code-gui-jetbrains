@@ -42,6 +42,8 @@ import org.cef.browser.CefFrame
 import org.cef.handler.CefDisplayHandlerAdapter
 import org.cef.handler.CefLifeSpanHandlerAdapter
 import org.cef.handler.CefLoadHandlerAdapter
+import org.cef.handler.CefRequestHandlerAdapter
+import org.cef.network.CefRequest
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Image
@@ -285,6 +287,29 @@ class ClaudeCodePanel(
             b.cefBrowser
         )
 
+        // JCEF natively turns file drops onto the browser surface into `file://` navigation;
+        // CEF's popup blocker then jumps the tab to about:blank#blocked and the panel
+        // appears as a white screen. Intercept those navigations, treat them as a native
+        // drop, and route the paths to the composer instead.
+        b.jbCefClient.addRequestHandler(object : CefRequestHandlerAdapter() {
+            override fun onBeforeBrowse(
+                browser: CefBrowser?,
+                frame: CefFrame?,
+                request: CefRequest?,
+                userGesture: Boolean,
+                isRedirect: Boolean,
+            ): Boolean {
+                val url = request?.url ?: return false
+                if (!url.startsWith("file://")) return false
+                val droppedPath = runCatching { java.net.URI(url).path }.getOrNull()
+                if (droppedPath.isNullOrBlank()) return true
+                val file = File(droppedPath)
+                logger.info("Intercepted JCEF file:// navigation as native drop: $droppedPath (isDir=${file.isDirectory})")
+                dispatchNativeDrop(listOf(DroppedFile(file.absolutePath, file.isDirectory)))
+                return true
+            }
+        }, b.cefBrowser)
+
         // Life span handler: intercept window.open() popups and route them correctly
         b.jbCefClient.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
             override fun onBeforePopup(
@@ -489,6 +514,7 @@ class ClaudeCodePanel(
             }
 
             override fun drop(event: DropTargetDropEvent) {
+                logger.info("[NativeDrop] Swing DropTarget fired")
                 try {
                     event.acceptDrop(DnDConstants.ACTION_COPY)
                     val droppedFiles = extractDroppedFiles(event.transferable)
@@ -529,6 +555,7 @@ class ClaudeCodePanel(
             }
 
             override fun drop(event: DnDEvent) {
+                logger.info("[NativeDrop] IDE DnDTarget fired (attached=${event.attachedObject?.javaClass?.name})")
                 val droppedFiles = extractDroppedFiles(event.attachedObject)
                 dispatchNativeDrop(droppedFiles)
             }
@@ -655,6 +682,7 @@ class ClaudeCodePanel(
     }
 
     private fun dispatchNativeDrop(files: List<DroppedFile>) {
+        logger.info("[NativeDrop] dispatchNativeDrop called with ${files.size} files: ${files.map { it.path }}")
         if (files.isEmpty()) return
         val params = buildJsonObject {
             put("sessionId", JsonPrimitive(sessionId))
