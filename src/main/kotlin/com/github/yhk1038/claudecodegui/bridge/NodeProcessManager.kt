@@ -60,33 +60,49 @@ class NodeProcessManager(
      * Start the Node.js backend process.
      */
     fun start() {
-        val nodePath = findNodeExecutable()
-        if (nodePath == null) {
-            logger.error("Node.js executable not found. Ensure 'node' is on PATH or installed in a well-known location.")
-            _portDeferred.completeExceptionally(
-                IllegalStateException("Node.js executable not found")
-            )
-            return
-        }
-
-        val backendFile = findBackendFile()
-        if (backendFile == null) {
-            logger.error("Backend entry file (backend.mjs) not found.")
-            _portDeferred.completeExceptionally(
-                IllegalStateException("Backend entry file not found")
-            )
-            return
-        }
-
-        val webviewDir = extractWebviewResources()
-
-        logger.info("Starting Node.js backend: node=$nodePath, backend=${backendFile.absolutePath}, webviewDir=${webviewDir?.absolutePath}")
-
+        // Everything here — node discovery, shell PATH capture, backend extraction —
+        // can block for seconds (the `$SHELL -lic` capture is bounded only by a 10s
+        // timeout). It must NOT run on the caller's thread (EDT): start() is reached
+        // synchronously from tool-window content creation, so a blocking call here
+        // would freeze the IDE UI. Run the whole thing on Dispatchers.IO.
         scope.launch(Dispatchers.IO) {
+            val nodePath = findNodeExecutable()
+            if (nodePath == null) {
+                logger.error(
+                    "Node.js executable not found. The plugin searched PATH and common install " +
+                        "locations (nvm, volta, fnm, Homebrew) but found nothing.\n" +
+                        "How to fix:\n" +
+                        "  1. Install Node.js, or make sure 'node' is on your PATH.\n" +
+                        "  2. If you use nvm, run 'nvm alias default <version>' so a default is set.\n" +
+                        "  3. Or set the NODE_PATH_OVERRIDE environment variable to your node binary " +
+                        "(e.g. ~/.nvm/versions/node/v24.16.0/bin/node)."
+                )
+                _portDeferred.completeExceptionally(
+                    IllegalStateException("Node.js executable not found")
+                )
+                return@launch
+            }
+
+            val backendFile = findBackendFile()
+            if (backendFile == null) {
+                logger.error("Backend entry file (backend.mjs) not found.")
+                _portDeferred.completeExceptionally(
+                    IllegalStateException("Backend entry file not found")
+                )
+                return@launch
+            }
+
+            val webviewDir = extractWebviewResources()
+
+            logger.info("Starting Node.js backend: node=$nodePath, backend=${backendFile.absolutePath}, webviewDir=${webviewDir?.absolutePath}")
+
             try {
                 val env = buildMap {
                     putAll(EnvironmentUtil.getEnvironmentMap())
                     put("JETBRAINS_MODE", "true")
+                    // Hand the backend the user's real shell PATH so anything it spawns
+                    // (claude, npx, git) is found even when the IDE started from GUI (#59).
+                    put("PATH", effectivePath())
                     if (webviewDir != null) {
                         put("WEBVIEW_DIR", webviewDir.absolutePath)
                     }
@@ -206,6 +222,19 @@ class NodeProcessManager(
     // ─── Node.js / Backend file discovery ───────────────────────────
 
     /**
+     * The PATH to use for `node` discovery and the backend process: the user's real
+     * shell PATH (captured via [ShellPathResolver], carries nvm/fnm/etc.) merged ahead
+     * of the IDE-inherited PATH. The merge keeps the inherited PATH as a fallback when
+     * shell capture fails (no $SHELL, Windows, timeout). Computed once per backend start.
+     */
+    private val effectivePathValue: String by lazy {
+        val basePath = EnvironmentUtil.getEnvironmentMap()["PATH"] ?: System.getenv("PATH") ?: ""
+        ShellPathResolver.mergePaths(ShellPathResolver.resolve(), basePath, File.pathSeparator)
+    }
+
+    private fun effectivePath(): String = effectivePathValue
+
+    /**
      * Find the `node` executable.
      * Tries:
      * 1. `which node` (PATH-based)
@@ -220,12 +249,13 @@ class NodeProcessManager(
             }
         }
 
-        // 2. PATH lookup via shell command (EnvironmentUtil provides full shell PATH)
+        // 2. PATH lookup via shell command (effectivePath captures the user's real
+        //    shell PATH so the lookup succeeds even when the IDE is launched from GUI)
         try {
             val command = if (SystemInfo.isWindows) arrayOf("cmd", "/c", "where", "node") else arrayOf("which", "node")
             val pb = ProcessBuilder(*command).redirectErrorStream(true)
             // Inject shell-aware PATH so lookup succeeds even when IDE is launched from GUI
-            pb.environment()["PATH"] = EnvironmentUtil.getEnvironmentMap()["PATH"] ?: System.getenv("PATH") ?: ""
+            pb.environment()["PATH"] = effectivePath()
             val proc = pb.start()
             val output = proc.inputStream.bufferedReader().readText().trim()
             val exitCode = proc.waitFor()
@@ -252,15 +282,17 @@ class NodeProcessManager(
             )
         } else {
             val home = System.getenv("HOME") ?: return null
-            listOf(
-                "/usr/local/bin/node",
-                "/opt/homebrew/bin/node",
-                "$home/.nvm/current/bin/node",
-                "$home/.volta/bin/node",
-                "$home/.fnm/aliases/default/bin/node",
-                "$home/.local/bin/node",
-                "/usr/bin/node",
-            )
+            buildList {
+                add("/usr/local/bin/node")
+                add("/opt/homebrew/bin/node")
+                // nvm has NO `current` symlink — scan ~/.nvm/versions/node/ and honour
+                // the default alias instead, otherwise nvm users are never matched (#59).
+                findNvmNode(home)?.let { add(it) }
+                add("$home/.volta/bin/node")
+                add("$home/.fnm/aliases/default/bin/node")
+                add("$home/.local/bin/node")
+                add("/usr/bin/node")
+            }
         }
 
         wellKnownPaths.firstOrNull { File(it).exists() && File(it).canExecute() }?.let { found ->
@@ -270,6 +302,35 @@ class NodeProcessManager(
 
         logger.warn("Node.js executable not found")
         return null
+    }
+
+    /**
+     * Resolve the nvm-managed `node` binary by scanning `~/.nvm/versions/node/` and
+     * honouring `~/.nvm/alias/default`. nvm does not maintain a `current` symlink, so a
+     * static well-known path can never find it — the directory must be scanned (#59).
+     *
+     * Version-selection policy lives in [NodeExecutableResolver]; this method only does
+     * the filesystem glue.
+     */
+    private fun findNvmNode(home: String): String? {
+        val versionsDir = File(home, ".nvm/versions/node")
+        if (!versionsDir.isDirectory) return null
+
+        val installed = versionsDir.listFiles { f -> f.isDirectory }?.map { it.name } ?: return null
+        if (installed.isEmpty()) return null
+
+        val defaultAlias = File(home, ".nvm/alias/default")
+            .takeIf { it.isFile }
+            ?.readText()
+
+        val chosen = NodeExecutableResolver.selectNvmVersion(installed, defaultAlias) ?: return null
+        val nodePath = File(versionsDir, "$chosen/bin/node")
+        return if (nodePath.exists() && nodePath.canExecute()) {
+            logger.info("Found node via nvm scan: ${nodePath.absolutePath} (alias=${defaultAlias?.trim()})")
+            nodePath.absolutePath
+        } else {
+            null
+        }
     }
 
     /**
