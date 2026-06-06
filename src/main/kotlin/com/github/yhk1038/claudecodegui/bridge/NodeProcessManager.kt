@@ -95,6 +95,9 @@ class NodeProcessManager(
                 val env = buildMap {
                     putAll(EnvironmentUtil.getEnvironmentMap())
                     put("JETBRAINS_MODE", "true")
+                    // Hand the backend the user's real shell PATH so anything it spawns
+                    // (claude, npx, git) is found even when the IDE started from GUI (#59).
+                    put("PATH", effectivePath())
                     if (webviewDir != null) {
                         put("WEBVIEW_DIR", webviewDir.absolutePath)
                     }
@@ -214,6 +217,19 @@ class NodeProcessManager(
     // ─── Node.js / Backend file discovery ───────────────────────────
 
     /**
+     * The PATH to use for `node` discovery and the backend process: the user's real
+     * shell PATH (captured via [ShellPathResolver], carries nvm/fnm/etc.) merged ahead
+     * of the IDE-inherited PATH. The merge keeps the inherited PATH as a fallback when
+     * shell capture fails (no $SHELL, Windows, timeout). Computed once per backend start.
+     */
+    private val effectivePathValue: String by lazy {
+        val basePath = EnvironmentUtil.getEnvironmentMap()["PATH"] ?: System.getenv("PATH") ?: ""
+        ShellPathResolver.mergePaths(ShellPathResolver.resolve(), basePath, File.pathSeparator)
+    }
+
+    private fun effectivePath(): String = effectivePathValue
+
+    /**
      * Find the `node` executable.
      * Tries:
      * 1. `which node` (PATH-based)
@@ -228,12 +244,13 @@ class NodeProcessManager(
             }
         }
 
-        // 2. PATH lookup via shell command (EnvironmentUtil provides full shell PATH)
+        // 2. PATH lookup via shell command (effectivePath captures the user's real
+        //    shell PATH so the lookup succeeds even when the IDE is launched from GUI)
         try {
             val command = if (SystemInfo.isWindows) arrayOf("cmd", "/c", "where", "node") else arrayOf("which", "node")
             val pb = ProcessBuilder(*command).redirectErrorStream(true)
             // Inject shell-aware PATH so lookup succeeds even when IDE is launched from GUI
-            pb.environment()["PATH"] = EnvironmentUtil.getEnvironmentMap()["PATH"] ?: System.getenv("PATH") ?: ""
+            pb.environment()["PATH"] = effectivePath()
             val proc = pb.start()
             val output = proc.inputStream.bufferedReader().readText().trim()
             val exitCode = proc.waitFor()
