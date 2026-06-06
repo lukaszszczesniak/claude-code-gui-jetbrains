@@ -143,6 +143,11 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
+            <h3>0.17.1 - Reliable Node.js detection, with a manual override</h3>
+            <ul>
+                <li><b>Automatic Node.js detection</b>: The plugin now reads your shell's real PATH, so Node.js installed via nvm, fnm, volta, or similar version managers is found even when the IDE is launched from the Dock or an app launcher — fixing the "Node.js not found" error on startup.</li>
+                <li><b>Manual Node path</b>: You can now set the Node.js executable path explicitly in Settings, just like the Claude CLI path. Handy if you manage multiple Node versions (for example with <code>n</code>) and want to pin the exact one the backend runs on.</li>
+            </ul>
             <h3>0.17.0 - Attach files faster, work with paths as chips</h3>
             <ul>
                 <li><b>@-mention chips</b>: Typing @ in the composer turns a file path into an inline chip. Chips are preserved in sent messages — click one to open that file in the editor.</li>
