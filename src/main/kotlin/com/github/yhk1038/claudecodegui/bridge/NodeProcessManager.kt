@@ -62,7 +62,15 @@ class NodeProcessManager(
     fun start() {
         val nodePath = findNodeExecutable()
         if (nodePath == null) {
-            logger.error("Node.js executable not found. Ensure 'node' is on PATH or installed in a well-known location.")
+            logger.error(
+                "Node.js executable not found. The plugin searched PATH and common install " +
+                    "locations (nvm, volta, fnm, Homebrew) but found nothing.\n" +
+                    "How to fix:\n" +
+                    "  1. Install Node.js, or make sure 'node' is on your PATH.\n" +
+                    "  2. If you use nvm, run 'nvm alias default <version>' so a default is set.\n" +
+                    "  3. Or set the NODE_PATH_OVERRIDE environment variable to your node binary " +
+                    "(e.g. ~/.nvm/versions/node/v24.16.0/bin/node)."
+            )
             _portDeferred.completeExceptionally(
                 IllegalStateException("Node.js executable not found")
             )
@@ -252,15 +260,17 @@ class NodeProcessManager(
             )
         } else {
             val home = System.getenv("HOME") ?: return null
-            listOf(
-                "/usr/local/bin/node",
-                "/opt/homebrew/bin/node",
-                "$home/.nvm/current/bin/node",
-                "$home/.volta/bin/node",
-                "$home/.fnm/aliases/default/bin/node",
-                "$home/.local/bin/node",
-                "/usr/bin/node",
-            )
+            buildList {
+                add("/usr/local/bin/node")
+                add("/opt/homebrew/bin/node")
+                // nvm has NO `current` symlink — scan ~/.nvm/versions/node/ and honour
+                // the default alias instead, otherwise nvm users are never matched (#59).
+                findNvmNode(home)?.let { add(it) }
+                add("$home/.volta/bin/node")
+                add("$home/.fnm/aliases/default/bin/node")
+                add("$home/.local/bin/node")
+                add("/usr/bin/node")
+            }
         }
 
         wellKnownPaths.firstOrNull { File(it).exists() && File(it).canExecute() }?.let { found ->
@@ -270,6 +280,35 @@ class NodeProcessManager(
 
         logger.warn("Node.js executable not found")
         return null
+    }
+
+    /**
+     * Resolve the nvm-managed `node` binary by scanning `~/.nvm/versions/node/` and
+     * honouring `~/.nvm/alias/default`. nvm does not maintain a `current` symlink, so a
+     * static well-known path can never find it — the directory must be scanned (#59).
+     *
+     * Version-selection policy lives in [NodeExecutableResolver]; this method only does
+     * the filesystem glue.
+     */
+    private fun findNvmNode(home: String): String? {
+        val versionsDir = File(home, ".nvm/versions/node")
+        if (!versionsDir.isDirectory) return null
+
+        val installed = versionsDir.listFiles { f -> f.isDirectory }?.map { it.name } ?: return null
+        if (installed.isEmpty()) return null
+
+        val defaultAlias = File(home, ".nvm/alias/default")
+            .takeIf { it.isFile }
+            ?.readText()
+
+        val chosen = NodeExecutableResolver.selectNvmVersion(installed, defaultAlias) ?: return null
+        val nodePath = File(versionsDir, "$chosen/bin/node")
+        return if (nodePath.exists() && nodePath.canExecute()) {
+            logger.info("Found node via nvm scan: ${nodePath.absolutePath} (alias=${defaultAlias?.trim()})")
+            nodePath.absolutePath
+        } else {
+            null
+        }
     }
 
     /**
