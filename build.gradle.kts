@@ -147,6 +147,11 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
+            <h3>0.18.1 - UI bug fixes</h3>
+            <ul>
+                <li>The project selector screen now fills the whole window instead of leaving part of it blank.</li>
+                <li>The scroll-to-bottom button now disappears properly after you clear a session.</li>
+            </ul>
             <h3>0.18.0 - Rename sessions and clearer titles</h3>
             <ul>
                 <li><b>Rename your conversations</b>: Hover a session in the dropdown and click the pencil to rename it inline. Your custom title is saved and survives restarts. (#14)</li>
