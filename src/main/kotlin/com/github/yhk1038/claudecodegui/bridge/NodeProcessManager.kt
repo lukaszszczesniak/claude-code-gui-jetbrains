@@ -27,7 +27,29 @@ import java.io.InputStreamReader
  * JSON-RPC dispatch is handled by [RpcWebSocketClient] via WebSocket /rpc endpoint.
  */
 class NodeProcessManager(
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /**
+     * Port to request from the backend via the `PORT` env var. `0` (the default)
+     * tells the backend to bind an OS-assigned free port and report the actual
+     * port back on its `PORT:{n}` stdout line — so multiple backends (one per IDE
+     * project root) coexist without colliding on a fixed port. See issue #57.
+     */
+    private val requestedPort: Int = 0,
+    /**
+     * Disambiguates this backend's extraction temp dirs from other concurrently
+     * running backends (one per IDE project root). Without it, two backends share
+     * `tmpdir/claude-code-{backend,webview}` and one's `deleteRecursively`+re-extract
+     * races the other's live webview serving. See issue #57 / plan S2b.
+     */
+    private val instanceTag: String = "default",
+    /**
+     * When non-null, the project root lives inside this WSL distro, so the backend
+     * is launched inside it via `wsl.exe` (node + claude run as Linux natives,
+     * avoiding the UNC-cwd / PowerShell failures of issue #57). Null = native host.
+     */
+    private val wslDistro: String? = null,
+    /** Linux working directory inside [wslDistro] (the project root's `/home/...` path). */
+    private val wslCwd: String? = null,
 ) : Disposable {
 
     private val logger = Logger.getInstance(NodeProcessManager::class.java)
@@ -93,8 +115,10 @@ class NodeProcessManager(
         // synchronously from tool-window content creation, so a blocking call here
         // would freeze the IDE UI. Run the whole thing on Dispatchers.IO.
         scope.launch(Dispatchers.IO) {
-            val nodePath = findNodeExecutable()
-            if (nodePath == null) {
+            // A WSL backend runs node inside the distro (resolved on the distro's PATH),
+            // so skip Windows-side node discovery for WSL project roots.
+            val nodePath = if (wslDistro != null) null else findNodeExecutable()
+            if (wslDistro == null && nodePath == null) {
                 logger.error(
                     "Node.js executable not found. The plugin searched PATH and common install " +
                         "locations (nvm, volta, fnm, Homebrew) but found nothing.\n" +
@@ -126,24 +150,48 @@ class NodeProcessManager(
             logger.info("Starting Node.js backend: node=$nodePath, backend=${backendFile.absolutePath}, webviewDir=${webviewDir?.absolutePath}")
 
             try {
-                val env = buildMap {
-                    putAll(EnvironmentUtil.getEnvironmentMap())
-                    put("JETBRAINS_MODE", "true")
-                    // Hand the backend the user's real shell PATH so anything it spawns
-                    // (claude, npx, git) is found even when the IDE started from GUI (#59).
-                    put("PATH", effectivePath())
-                    if (webviewDir != null) {
-                        put("WEBVIEW_DIR", webviewDir.absolutePath)
+                val pb: ProcessBuilder
+                if (wslDistro != null) {
+                    // WSL project root: launch the backend inside the distro via wsl.exe.
+                    // backend.mjs / webview were extracted to a Windows temp dir; WSL sees
+                    // them through /mnt/<drive>/... so convert the paths. Backend env is
+                    // passed inside the command (env K=V — see buildWslNodeCommand); the
+                    // process environment is left intact so wsl.exe resolves on the Windows
+                    // PATH. NOTE: not verifiable on our dev host — see issue #57 (S4b).
+                    val linuxBackend = WslPathResolver.toWslPath(backendFile.absolutePath)
+                        ?: backendFile.absolutePath
+                    val wslEnv = buildMap {
+                        put("JETBRAINS_MODE", "true")
+                        put("PORT", requestedPort.toString())
+                        webviewDir?.let { wv ->
+                            WslPathResolver.toWslPath(wv.absolutePath)?.let { put("WEBVIEW_DIR", it) }
+                        }
                     }
-                    // PROJECT_DIR removed — workingDir is passed via WebSocket message
+                    val cmd = WslPathResolver.buildWslNodeCommand(wslDistro, wslCwd, wslEnv, linuxBackend)
+                    logger.info("Starting WSL backend (distro=$wslDistro, cwd=$wslCwd): ${cmd.joinToString(" ")}")
+                    pb = ProcessBuilder(cmd).redirectErrorStream(false)
+                } else {
+                    val env = buildMap {
+                        putAll(EnvironmentUtil.getEnvironmentMap())
+                        put("JETBRAINS_MODE", "true")
+                        // Hand the backend the user's real shell PATH so anything it spawns
+                        // (claude, npx, git) is found even when the IDE started from GUI (#59).
+                        put("PATH", effectivePath())
+                        if (webviewDir != null) {
+                            put("WEBVIEW_DIR", webviewDir.absolutePath)
+                        }
+                        // Dynamic port: backend binds an OS-assigned free port when this is 0
+                        // and reports the real port via its PORT:{n} stdout line. Lets one
+                        // backend per IDE project root coexist without a fixed-port clash (#57).
+                        put("PORT", requestedPort.toString())
+                        // PROJECT_DIR removed — workingDir is passed via WebSocket message
+                    }
+                    pb = ProcessBuilder(nodePath!!, backendFile.absolutePath)
+                        .directory(backendFile.parentFile)
+                        .redirectErrorStream(false)
+                    pb.environment().clear()
+                    pb.environment().putAll(env)
                 }
-
-                val pb = ProcessBuilder(nodePath, backendFile.absolutePath)
-                    .directory(backendFile.parentFile)
-                    .redirectErrorStream(false)
-
-                pb.environment().clear()
-                pb.environment().putAll(env)
 
                 val proc = pb.start()
                 process = proc
@@ -461,7 +509,7 @@ class NodeProcessManager(
      */
     private fun extractBackendFromJar(): File? {
         return try {
-            val tempDir = File(System.getProperty("java.io.tmpdir"), "claude-code-backend")
+            val tempDir = File(System.getProperty("java.io.tmpdir"), "claude-code-backend-$instanceTag")
 
             // Always re-extract for latest version
             if (tempDir.exists()) {
@@ -513,7 +561,7 @@ class NodeProcessManager(
 
         // Production: extract from JAR
         return try {
-            val tempDir = File(System.getProperty("java.io.tmpdir"), "claude-code-webview")
+            val tempDir = File(System.getProperty("java.io.tmpdir"), "claude-code-webview-$instanceTag")
 
             if (tempDir.exists()) {
                 tempDir.deleteRecursively()
