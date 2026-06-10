@@ -32,8 +32,29 @@ function removeSystemTags(text: string): string {
   // Clean up extra whitespace
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
-  // If everything was removed, return original text
-  return cleaned.length > 0 ? cleaned : text;
+  // When the text is nothing but system tags (e.g. a slash command like
+  // "<command-name>/init</command-name>"), nothing meaningful is left. Return
+  // the empty string so the caller can fall through to the next title
+  // candidate instead of leaking the raw tags.
+  return cleaned;
+}
+
+/**
+ * Derive a title from a user message's text. A slash command is recorded as
+ * "<command-name>/init</command-name>", so we surface "/init" — mirroring the
+ * command chip the chat renders (see the webview's parseUserContent) rather than
+ * leaking raw tags or the expanded command prompt. Otherwise the text is returned
+ * with system tags stripped, or null when nothing meaningful remains so the caller
+ * can fall through to the next candidate.
+ */
+function deriveTitleFromUserText(text: string): string | null {
+  const commandMatch = /<command-name>([\s\S]*?)<\/command-name>/.exec(text);
+  if (commandMatch) {
+    const name = commandMatch[1].trim().replace(/^\/+/, '');
+    if (name) return `/${name}`;
+  }
+  const cleaned = removeSystemTags(text.replace(/\n/g, ' ').trim());
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 function extractTextFromContent(content: MessageContent): string | null {
@@ -128,12 +149,20 @@ export async function extractSessionInfo(file: string): Promise<SessionInfo> {
         hasUserOrAssistant = true;
       }
 
+      // Capture the first meaningful prompt from a real (non-meta) user message.
+      // A slash command surfaces as its name ("/init"); a normal message uses its
+      // text with system tags stripped. Entries that reduce to nothing (a bare
+      // system tag, an empty tool_result) are skipped so the scan continues to the
+      // next real prompt.
       if (type === 'user' && !isMeta && firstUserPrompt === null) {
         const messageObj = entry.message as Record<string, unknown> | undefined;
         const content = (messageObj?.content ?? null) as MessageContent;
         const text = extractTextFromContent(content);
         if (text) {
-          firstUserPrompt = removeSystemTags(text.replace(/\n/g, ' ').trim());
+          const candidate = deriveTitleFromUserText(text);
+          if (candidate) {
+            firstUserPrompt = candidate;
+          }
         }
       }
     });

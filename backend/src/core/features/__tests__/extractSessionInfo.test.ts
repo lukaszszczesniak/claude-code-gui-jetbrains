@@ -268,6 +268,133 @@ describe('extractSessionInfo', () => {
       expect(result.title).toBe('Real user message');
     });
 
+    it('uses the slash command name as the title for slash-command sessions', async () => {
+      // Reproduces the /init shape: the first user entry is the command tags.
+      // The title should mirror what the chat renders as a command chip: "/init".
+      const filePath = await writeJsonl([
+        JSON.stringify({
+          uuid: 'u1',
+          parentUuid: null,
+          type: 'user',
+          timestamp: '2025-01-01T00:00:00Z',
+          message: { content: '<command-message>init</command-message>\n<command-name>/init</command-name>' },
+        }),
+        JSON.stringify({
+          uuid: 'u2',
+          parentUuid: 'u1',
+          type: 'user',
+          isMeta: true,
+          timestamp: '2025-01-01T00:01:00Z',
+          message: { content: [{ type: 'text', text: 'Please analyze this codebase and create a CLAUDE.md file' }] },
+        }),
+        JSON.stringify({
+          uuid: 'u3',
+          parentUuid: 'u2',
+          type: 'assistant',
+          timestamp: '2025-01-01T00:02:00Z',
+          message: { content: [{ type: 'text', text: 'Done' }] },
+        }),
+      ]);
+
+      const result = await extractSessionInfo(filePath);
+
+      expect(result.title).toBe('/init');
+    });
+
+    it('normalizes the slash prefix when extracting the command name', async () => {
+      // command-name may arrive with or without a leading slash; title is always "/name".
+      const filePath = await writeJsonl([
+        JSON.stringify({
+          uuid: 'u1',
+          parentUuid: null,
+          type: 'user',
+          timestamp: '2025-01-01T00:00:00Z',
+          message: { content: '<command-name>compact</command-name>' },
+        }),
+        JSON.stringify({
+          uuid: 'u2',
+          parentUuid: 'u1',
+          type: 'assistant',
+          timestamp: '2025-01-01T00:01:00Z',
+          message: { content: [{ type: 'text', text: 'ok' }] },
+        }),
+      ]);
+
+      const result = await extractSessionInfo(filePath);
+
+      expect(result.title).toBe('/compact');
+    });
+
+    it('never leaks raw command tags as the title', async () => {
+      const filePath = await writeJsonl([
+        JSON.stringify({
+          uuid: 'u1',
+          parentUuid: null,
+          type: 'user',
+          timestamp: '2025-01-01T00:00:00Z',
+          message: { content: '<command-message>compact</command-message>\n<command-name>/compact</command-name>' },
+        }),
+        JSON.stringify({
+          uuid: 'u2',
+          parentUuid: 'u1',
+          type: 'assistant',
+          timestamp: '2025-01-01T00:01:00Z',
+          message: { content: [{ type: 'text', text: 'ok' }] },
+        }),
+      ]);
+
+      const result = await extractSessionInfo(filePath);
+
+      expect(result.title).not.toContain('<');
+    });
+
+    it('skips a non-command tag-only prompt and uses the next meaningful prompt', async () => {
+      // First user entry is only a system tag (no command-name); fall through.
+      const filePath = await writeJsonl([
+        JSON.stringify({
+          uuid: 'u1',
+          parentUuid: null,
+          type: 'user',
+          timestamp: '2025-01-01T00:00:00Z',
+          message: { content: '<system-reminder>be careful</system-reminder>' },
+        }),
+        JSON.stringify({
+          uuid: 'u2',
+          parentUuid: 'u1',
+          type: 'user',
+          timestamp: '2025-01-01T00:01:00Z',
+          message: { content: [{ type: 'text', text: 'What does this function do?' }] },
+        }),
+      ]);
+
+      const result = await extractSessionInfo(filePath);
+
+      expect(result.title).toBe('What does this function do?');
+    });
+
+    it('returns "No title" when only non-command tags and no real text exist', async () => {
+      const filePath = await writeJsonl([
+        JSON.stringify({
+          uuid: 'u1',
+          parentUuid: null,
+          type: 'user',
+          timestamp: '2025-01-01T00:00:00Z',
+          message: { content: '<system-reminder>nothing meaningful</system-reminder>' },
+        }),
+        JSON.stringify({
+          uuid: 'u2',
+          parentUuid: 'u1',
+          type: 'assistant',
+          timestamp: '2025-01-01T00:01:00Z',
+          message: { content: [{ type: 'text', text: 'ok' }] },
+        }),
+      ]);
+
+      const result = await extractSessionInfo(filePath);
+
+      expect(result.title).toBe('No title');
+    });
+
     it('should handle empty lines', async () => {
       const filePath = await writeJsonl([
         '',
