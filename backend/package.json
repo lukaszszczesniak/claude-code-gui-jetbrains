@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.18.1",
   "type": "module",
+  "packageManager": "pnpm@11.5.3",
   "scripts": {
     "dev": "node --import tsx/esm --watch src/server.ts",
     "build": "node esbuild.mjs",
