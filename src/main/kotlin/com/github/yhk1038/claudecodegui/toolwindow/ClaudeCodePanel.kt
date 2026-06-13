@@ -34,6 +34,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.ui.jcef.JBCefBrowser
 import com.intellij.ui.jcef.JBCefJSQuery
 import com.intellij.util.ui.UIUtil
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -248,6 +249,10 @@ class ClaudeCodePanel(
                 try {
                     val port = backendService.awaitPort(project.basePath ?: "")
                     loadWebView(port)
+                } catch (e: CancellationException) {
+                    // Panel/tab closed before the backend port was ready — a normal
+                    // shutdown, not a failure. Re-throw so it isn't logged as an error.
+                    throw e
                 } catch (e: Exception) {
                     logger.error("Failed to start Node.js backend", e)
                     javax.swing.SwingUtilities.invokeLater {
@@ -915,6 +920,9 @@ class ClaudeCodePanel(
             try {
                 val port = backendService.awaitPort(project.basePath ?: "")
                 loadWebView(port)
+            } catch (e: CancellationException) {
+                // Panel/tab closed mid-retry — a normal shutdown, not a failure.
+                throw e
             } catch (e: Exception) {
                 logger.error("Retry: Failed to start Node.js backend", e)
                 javax.swing.SwingUtilities.invokeLater {
