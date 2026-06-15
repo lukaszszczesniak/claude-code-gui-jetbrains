@@ -147,6 +147,15 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
+            <h3>0.18.4 - See and switch your model right in the composer</h3>
+            <ul>
+                <li><b>Current model at a glance</b>: The chat input now shows which Claude model you're using, and you can switch models with a keyboard shortcut without leaving the keyboard. (#108)</li>
+                <li><b>Color-coded input modes</b>: Each input mode (Plan, Bypass, Ask, Auto) now has its own color, and the input box highlights when focused so the active mode is easy to recognize.</li>
+                <li><b>Tool results show again</b>: Run output that was missing from some tool cards now renders correctly.</li>
+                <li><b>No more stuck "Starting backend…"</b>: The panel no longer hangs indefinitely when the backend is slow to start. (#97)</li>
+                <li><b>Cleaner scroll button</b>: The scroll-to-bottom button now hides when you're already near the bottom. (#104)</li>
+                <li>Other stability improvements.</li>
+            </ul>
             <h3>0.18.3 - Steadier sign-in on Windows and WSL</h3>
             <ul>
                 <li><b>Windows & WSL sign-in fixes</b>: Claude failed to launch in WSL projects, and the login screen could get stuck on Windows. Both are now resolved. (#57, #99)</li>
