@@ -15,6 +15,13 @@
             icon="/icons/claudeCode.svg"
             factoryClass="com.github.yhk1038.claudecodegui.toolwindow.ClaudeCodeToolWindowFactory"/>
 
+        <!-- Left sidebar panel that hosts the session list -->
+        <toolWindow
+            id="Claude Sessions"
+            anchor="left"
+            icon="/icons/claudeSessions.svg"
+            factoryClass="com.github.yhk1038.claudecodegui.toolwindow.ClaudeSessionsToolWindowFactory"/>
+
         <!-- Editor Tab -->
         <fileEditorProvider
             implementation="com.github.yhk1038.claudecodegui.editor.ClaudeCodeEditorProvider"/>
