@@ -29,13 +29,13 @@ export function ScopeTabs(props: Props) {
         <button
           key={tab.scope}
           onClick={() => onScopeChange(tab.scope)}
-          className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1 text-xs rounded transition-colors ${
+          className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-sm rounded transition-colors ${
             scope === tab.scope
               ? 'bg-surface-raised text-text-primary'
               : 'text-text-tertiary hover:text-text-secondary'
           }`}
         >
-          <tab.Icon className="w-3.5 h-3.5" />
+          <tab.Icon className="w-4 h-4" />
           {tab.label}
         </button>
       ))}

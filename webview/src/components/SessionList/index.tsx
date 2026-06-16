@@ -1,5 +1,6 @@
 import { GroupedSessions, GROUP_ORDER, GROUP_LABELS } from './utils';
 import { SessionItem } from './SessionItem';
+import { useSessionListScale } from './scale';
 
 interface Props {
   groupedSessions: GroupedSessions;
@@ -13,16 +14,17 @@ interface Props {
 
 export function SessionList(props: Props) {
   const { groupedSessions, currentSessionId, onSelectSession, onDeleteSession, onRenameSession, className = 'max-h-80' } = props;
+  const scale = useSessionListScale();
 
   return (
-    <div className={`${className} overflow-y-auto p-1.5 pt-0 flex flex-col gap-0.5`}>
+    <div className={`${className} overflow-y-auto ${scale.listPad} flex flex-col gap-0.5`}>
       {GROUP_ORDER.map((groupKey) => {
         const sessionsInGroup = groupedSessions[groupKey];
         if (sessionsInGroup.length === 0) return null;
 
         return (
           <div key={groupKey}>
-            <div className="px-2 py-1.5 text-[0.8461rem] text-text-tertiary">
+            <div className={`${scale.groupHeader} text-text-tertiary`}>
               {GROUP_LABELS[groupKey]}
             </div>
             {sessionsInGroup.map((session) => (
