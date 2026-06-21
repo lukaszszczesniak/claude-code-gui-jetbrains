@@ -32,6 +32,8 @@ import { isMobile } from '@/config/environment';
 import { shouldSubmitOnEnter } from './shouldSubmitOnEnter';
 import { basename } from './basename';
 import { RichInput } from './RichInput';
+import { TelemetryConsentBanner } from '../TelemetryConsentBanner';
+import { useTelemetryConsent, ConsentStatus, ConsentSource } from '@/hooks/useTelemetryConsent';
 import { getCaretOffset, setCaretOffset, getSelectionRange } from '@/utils/domSelection';
 
 interface NativeDropEntry {
@@ -78,6 +80,10 @@ export function ChatInput() {
   const lastMetaArrowTime = useRef<number>(0);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showModelSwitch, setShowModelSwitch] = useState(false);
+  // 텔레메트리 동의: profile 상태가 미응답(PENDING)일 때만 배너 노출. X 닫기는 이 세션에서만
+  // 숨기고(consentDismissed), 새 세션 전환 시 다시 노출한다. 수락/거절하면 status가 바뀌어 영영 숨는다.
+  const { status: consentStatus, accept: acceptConsent, deny: denyConsent } = useTelemetryConsent();
+  const [consentDismissed, setConsentDismissed] = useState(false);
 
   // Native (IDE/Swing) drag-and-drop bridge: Kotlin → Node backend → IPC NATIVE_DROP_ENTRIES.
   // Currently unused (CefDragHandler forwards drops to the page as HTML5 events instead),
@@ -300,6 +306,8 @@ export function ChatInput() {
       setPathTokens([]);
       initHistory([]);
       lastInitSessionRef.current = undefined;
+      // 새 세션에서는 동의 배너를 다시 노출한다(미응답 상태인 경우).
+      setConsentDismissed(false);
     }
   }, [currentSessionId, clearAttachments, initHistory]);
 
@@ -490,6 +498,14 @@ export function ChatInput() {
 
   return (
     <div className="max-w-[44rem] mx-auto px-4 pb-[14px] pt-2">
+      {/* 텔레메트리 동의 인풋배너: 미응답(PENDING)이고 이 세션에서 닫지 않았을 때만 표시 */}
+      {consentStatus === ConsentStatus.PENDING && !consentDismissed && (
+        <TelemetryConsentBanner
+          onAccept={() => void acceptConsent(ConsentSource.BANNER)}
+          onDeny={() => void denyConsent(ConsentSource.BANNER)}
+          onClose={() => setConsentDismissed(true)}
+        />
+      )}
       {/* 메인 인풋 컨테이너 — drag/drop은 window 레벨 리스너가 패널 전체에서 처리한다. */}
       <div
         className={`

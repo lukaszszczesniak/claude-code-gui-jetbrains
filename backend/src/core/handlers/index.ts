@@ -13,6 +13,8 @@ import { deleteSessionHandler } from './deleteSession';
 import { renameSessionHandler } from './renameSession';
 import { getSettingsHandler } from './getSettings';
 import { saveSettingsHandler } from './saveSettings';
+import { getTelemetryConsentHandler } from './getTelemetryConsent';
+import { setTelemetryConsentHandler } from './setTelemetryConsent';
 import { getProjectsHandler } from './getProjects';
 import { getUsageHandler } from './getUsage';
 import { openFileHandler } from './openFile';
@@ -55,6 +57,8 @@ import { openFolderDialogHandler } from './openFolderDialog';
 import { findBackgroundTaskOutputPathHandler } from './findBackgroundTaskOutputPathHandler';
 import { listSystemSoundsHandler } from './listSystemSounds';
 import { playSystemSoundHandler } from './playSystemSound';
+import { clientInfoHandler } from './clientInfo';
+import { clientErrorHandler } from './clientError';
 
 export async function handleMessage(
   connectionId: string,
@@ -100,6 +104,12 @@ export async function handleMessage(
       break;
     case 'SAVE_SETTINGS':
       await saveSettingsHandler(connectionId, message, connections, bridge);
+      break;
+    case 'GET_TELEMETRY_CONSENT':
+      await getTelemetryConsentHandler(connectionId, message, connections, bridge);
+      break;
+    case 'SET_TELEMETRY_CONSENT':
+      await setTelemetryConsentHandler(connectionId, message, connections, bridge);
       break;
     case 'GET_PROJECTS':
       await getProjectsHandler(connectionId, message, connections, bridge);
@@ -226,6 +236,12 @@ export async function handleMessage(
       break;
     case 'PLAY_SYSTEM_SOUND':
       await playSystemSoundHandler(connectionId, message, connections, bridge);
+      break;
+    case 'CLIENT_INFO':
+      clientInfoHandler(connectionId, message, connections, bridge);
+      break;
+    case 'CLIENT_ERROR':
+      clientErrorHandler(connectionId, message, connections, bridge);
       break;
     default:
       console.error('[node-backend]', `Unknown message type: ${message.type}`);

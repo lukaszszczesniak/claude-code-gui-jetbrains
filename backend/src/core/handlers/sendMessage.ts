@@ -3,6 +3,7 @@ import type { Bridge } from '../../bridge/bridge-interface';
 import type { IPCMessage } from '../types';
 import { generateSessionId } from '../features/generateSessionId';
 import { ensureClaudeProcess, sendMessageToProcess } from '../claude-process';
+import { trackEvent } from '../features/telemetry';
 
 export async function sendMessageHandler(
   connectionId: string,
@@ -22,6 +23,9 @@ export async function sendMessageHandler(
     return;
   }
   const inputMode = message.payload?.inputMode as string;
+  // 새 세션 여부는 webview가 판정해 payload로 알려준다. webview가 새 세션에도 sessionId를
+  // 미리 생성해 보내므로(ChatStreamContext), 백엔드에서 sessionId 유무로는 판정할 수 없다.
+  const isNewSession = message.payload?.isNewSession === true;
   const resolvedSessionId = msgSessionId || generateSessionId();
   const attachments = message.payload?.attachments as Array<
     | { type: 'image'; fileName: string; mimeType: string; base64: string }
@@ -43,12 +47,23 @@ export async function sendMessageHandler(
         content: content.trim(),
         sessionId: resolvedSessionId,
       }, connectionId);
+
+      // 새 세션이 시작된 경우에만 활성/사용 신호를 보낸다(동의 시에만, 내부에서 게이팅).
+      // 공통 필드(os/버전 등)는 trackEvent가 자동으로 싣는다.
+      if (isNewSession) {
+        trackEvent('session_started');
+      }
     }
   } catch (err) {
-    // ensureClaudeProcess already broadcasts SERVICE_ERROR to the session.
-    // Log here to prevent unhandled rejection; do NOT re-throw.
+    // ensureClaudeProcess already broadcasts SERVICE_ERROR to the session, so the
+    // user-facing error response is preserved. Telemetry reporting is intentionally
+    // NOT done here — it is unified at the ws-server handler boundary. Send the ACK
+    // first (the request is acknowledged regardless of outcome), then rethrow so the
+    // single backend error boundary reports it via reportBackendError.
     console.error('[node-backend]', 'sendMessage failed:', err);
-  } finally {
     connections.sendTo(connectionId, 'ACK', { requestId: message.requestId });
+    throw err;
   }
+  // ACK on the success path. (The catch path ACKs before rethrowing.)
+  connections.sendTo(connectionId, 'ACK', { requestId: message.requestId });
 }
