@@ -9,7 +9,7 @@ import type { IPCMessage } from '../core/types';
 import { ClientEnv } from '../shared';
 import { getPluginVersion } from '../core/handlers/getVersion';
 import { cancelLogin } from '../core/handlers/login';
-import { reportBackendError } from '../core/features/telemetry';
+import { reportBackendError, trackActivity } from '../core/features/telemetry';
 import { LogWebSocketServer } from '../logging/log-ws';
 
 const ALLOWED_WS_ORIGINS = new Set([
@@ -198,6 +198,11 @@ export function startWebSocketServer(
           return;
         }
         const bridge = bridges[connections.getClientEnv(connectionId)];
+        // Single activity entry point (mirrors reportBackendError below): every webview
+        // request flows through here, so we record it as telemetry activity to keep the
+        // Rybbit session alive for the real usage span. trackActivity excludes system
+        // messages and gates on consent internally; it is fire-and-forget.
+        trackActivity(parsed.type);
         // Single backend error boundary for the handler layer: any handler that throws
         // (or rejects) flows here, and reportBackendError is the ONLY place that reports it.
         // Individual handlers must NOT call trackError themselves — they rethrow to here.

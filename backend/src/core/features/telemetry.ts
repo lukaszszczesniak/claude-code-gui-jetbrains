@@ -264,6 +264,56 @@ export function trackEvent(
   fireAndForget(send(TrackType.EVENT, eventName, properties, options));
 }
 
+// 활동으로 추적하지 않는 메시지 타입. 사용자 능동 행동이 아니라 시스템/자동 트래픽이다.
+// 판단 기준: 사용자 의도 없이 앱이 자기 상태를 파악하려 자동(마운트·포커스·폴링)으로
+// 부르는 read-only 조회는 노이즈로 제외하고, 사용자가 직접 일으킨 동작(SEND/SAVE/SET/OPEN
+// /CREATE/APPLY…)만 활동으로 남긴다. GET_PROJECTS·LOAD_SESSION은 화면 진입/세션 전환의
+// 약한 행동 신호라 의도적으로 유지한다.
+const ACTIVITY_EXCLUDED_TYPES = new Set([
+  // 시스템 / 에러 / 폴링성 자동 트래픽
+  'CLIENT_INFO',           // 순수 WS 연결 핸드셰이크
+  'CLIENT_ERROR',          // 에러 보고(reportBackendError 경로)
+  'GET_ACCOUNT',           // 창 포커스마다 자동 refetch
+  'GET_USAGE',             // 사용량 조회 폴링성
+  // 인프라 / 환경 / 버전 자동 조회 (마운트 시 버스트)
+  'GET_TELEMETRY_CONSENT', // 동의 상태 자동 조회
+  'GET_CLI_CONFIG',        // CLI 설정 자동 로드
+  'GET_IDE_ROOT',          // IDE 루트 자동 조회
+  'GET_VERSION',           // 버전 자동 표시(About 리로드 클릭만 능동)
+  'GET_PLUGIN_UPDATES',    // 업데이트 확인(폴링성)
+  'GET_TUNNEL_STATUS',     // 터널 상태(폴링성)
+  'GET_TUNNEL_PREREQS',    // 터널 사전조건 조회
+  'GET_WORKING_DIR',       // 작업 디렉토리 자동 조회
+  'GET_AVAILABLE_TERMINALS', // 터미널 탐지(설정 마운트)
+  'GET_DETECTED_CLI_PATH',   // CLI 경로 탐지
+  'GET_DETECTED_NODE_PATH',  // Node 경로 탐지
+  // 콘텐츠 자동 로드 (마운트 버스트, 화면 진입은 OPEN_*/능동 행동으로 별도 포착)
+  'GET_SETTINGS',          // 설정 자동 로드
+  'GET_CLAUDE_SETTINGS',   // Claude 설정 자동 로드
+  'GET_SESSIONS',          // 세션 목록 자동 로드
+  'RECLAIM_SESSION',       // 탭 자동 복원
+  'LIST_PROJECT_FILES',    // @멘션 파일 검색(타이핑 중 자동 빈발)
+]);
+
+/**
+ * webview→backend 요청의 **단일 진입점**에서 호출하는 "활동" 기록기. reportBackendError가
+ * 에러의 단일 진입점인 것과 대칭이다. Rybbit은 user_id 기준 30분 무이벤트면 세션을 끊는데,
+ * 단발 이벤트만으로는 "사용 중"을 측정할 수 없다. 요청이 들어올 때마다 'activity'를 보내
+ * 세션을 실제 활동 동안 살려두고, properties.type으로 어떤 행동이었는지도 남긴다.
+ *
+ * 디바운스/타이머 없이 요청마다 **1:1로 전송**한다 — 실제 요청이 있을 때만 보내므로 idle
+ * 시 전송 0(세션 자연 만료, heartbeat 같은 인공 신호와 다름). 시스템/생명주기 메시지는
+ * 사용자 활동이 아니라 제외한다. 동의 게이팅은 trackEvent에 위임한다.
+ *
+ * 이벤트명은 `activity:<메시지 타입>`(예: `activity:SEND_MESSAGE`)로 보낸다. Rybbit 이벤트
+ * 목록에 행동별로 바로 뜨고, `activity:` prefix로 묶어 세션 유지/그룹 분석을 할 수 있다.
+ * **호출 시 await/then/catch/finally 금지** — `void trackActivity(...)`.
+ */
+export function trackActivity(type: string): void {
+  if (ACTIVITY_EXCLUDED_TYPES.has(type)) return;
+  trackEvent(`activity:${type}`);
+}
+
 /**
  * 에러를 전송한다. **호출 시 await/then/catch/finally 금지** — `void trackError(...)`.
  * Rybbit "오류" 대시보드가 props.message / props.stack을 추출하므로 그 키로 담는다.

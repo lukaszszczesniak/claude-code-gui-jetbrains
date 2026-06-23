@@ -48,7 +48,13 @@ async function loadTelemetry(
   const fetchMock = vi.fn(fetchImpl ?? (async () => ({ ok: true })));
   vi.stubGlobal('fetch', fetchMock);
   const mod = await import('./telemetry');
-  return { trackEvent: mod.trackEvent, trackError: mod.trackError, flushTelemetry: mod.flushTelemetry, fetchMock };
+  return {
+    trackEvent: mod.trackEvent,
+    trackError: mod.trackError,
+    trackActivity: mod.trackActivity,
+    flushTelemetry: mod.flushTelemetry,
+    fetchMock,
+  };
 }
 
 describe('telemetry consent gating', () => {
@@ -128,5 +134,61 @@ describe('telemetry consent gating', () => {
     await flushTelemetry();
     // 원본 1회 + transport_error 1회(재귀 가드로 그 이상은 없음)
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('trackActivity (활동 단일 진입점)', () => {
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.doUnmock('./profile');
+    vi.doUnmock('../handlers/getVersion');
+  });
+
+  it("event_name='activity:<메시지 타입>' 형태로 전송한다", async () => {
+    const { trackActivity, fetchMock, flushTelemetry } = await loadTelemetry(accepted, 'test-key');
+    trackActivity('SEND_MESSAGE');
+    await flushTelemetry();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.event_name).toBe('activity:SEND_MESSAGE');
+  });
+
+  it('디바운스가 없다 — 연속 호출마다 1:1로 전송한다', async () => {
+    const { trackActivity, fetchMock, flushTelemetry } = await loadTelemetry(accepted, 'test-key');
+    trackActivity('SEND_MESSAGE');
+    trackActivity('LOAD_SESSION');
+    trackActivity('APPLY_DIFF');
+    await flushTelemetry();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('제외 타입(시스템/폴링/자동 조회)은 활동으로 전송하지 않는다', async () => {
+    const { trackActivity, fetchMock, flushTelemetry } = await loadTelemetry(accepted, 'test-key');
+    const excluded = [
+      'CLIENT_INFO', 'CLIENT_ERROR', 'GET_ACCOUNT', 'GET_USAGE',
+      'GET_TELEMETRY_CONSENT', 'GET_CLI_CONFIG', 'GET_IDE_ROOT', 'GET_VERSION',
+      'GET_PLUGIN_UPDATES', 'GET_TUNNEL_STATUS', 'GET_TUNNEL_PREREQS', 'GET_WORKING_DIR',
+      'GET_AVAILABLE_TERMINALS', 'GET_DETECTED_CLI_PATH', 'GET_DETECTED_NODE_PATH',
+      'GET_SETTINGS', 'GET_CLAUDE_SETTINGS', 'GET_SESSIONS', 'RECLAIM_SESSION', 'LIST_PROJECT_FILES',
+    ];
+    excluded.forEach((t) => trackActivity(t));
+    await flushTelemetry();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('능동 행동·약신호 타입(SEND_MESSAGE/SAVE_SETTINGS/LOAD_SESSION/GET_PROJECTS)은 전송한다', async () => {
+    const { trackActivity, fetchMock, flushTelemetry } = await loadTelemetry(accepted, 'test-key');
+    const kept = ['SEND_MESSAGE', 'SAVE_SETTINGS', 'LOAD_SESSION', 'GET_PROJECTS'];
+    kept.forEach((t) => trackActivity(t));
+    await flushTelemetry();
+    expect(fetchMock).toHaveBeenCalledTimes(kept.length);
+  });
+
+  it('미동의(DENIED)면 활동도 전송하지 않는다(동의 게이팅)', async () => {
+    const { trackActivity, fetchMock, flushTelemetry } = await loadTelemetry(denied, 'test-key');
+    trackActivity('SEND_MESSAGE');
+    await flushTelemetry();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
