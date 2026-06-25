@@ -1,7 +1,7 @@
 import {useMemo, useRef, useState, useEffect} from "react";
 import {ToolUseBlockDto} from "@/types";
 import {getAdapter} from "@/adapters";
-import {RendererProps, ToolHeader, ToolWrapper} from "./common";
+import {RendererProps, ResultCaption, ToolHeader, ToolWrapper} from "./common";
 import {cn} from "@/utils/cn";
 // @ts-ignore
 import {diffAsText} from "unidiff";
@@ -116,7 +116,7 @@ export function EditRenderer(props: RendererProps) {
                 <div className={cn("text-text-primary/80 text-[0.8461rem] font-mono", path && "cursor-pointer hover:underline")} onClick={path ? () => getAdapter().openFile(path) : undefined}>{fileName}</div>
             </ToolHeader>
             <div ref={containerRef}>
-                <div className="text-text-primary/50 text-[0.8461rem] mb-1">Modified</div>
+                <ResultCaption>Modified</ResultCaption>
 
                 {showDiff && (
                     <div className="rounded overflow-hidden border border-border-default mt-2.5">

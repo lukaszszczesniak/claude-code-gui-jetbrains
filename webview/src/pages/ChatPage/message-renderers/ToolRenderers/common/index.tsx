@@ -87,6 +87,19 @@ export const ToolHeader = (props: {
     )
 }
 
+/**
+ * A short caption that explains a tool's execution result. Rendered between the
+ * tool header and the result box (e.g. Edit's "Modified", search's "N found").
+ */
+export const ResultCaption = (props: {children?: ReactNode; className?: string}) => {
+    const {children, className} = props;
+    return (
+        <div className={cn("text-text-primary/50 text-[0.8461rem] mb-1", className)}>
+            {children}
+        </div>
+    );
+};
+
 export const Container = ({children, className = ''}: { children?: ReactNode; className?: string;}) => {
     return (
         <div className={`bg-surface-hover border border-border-subtle rounded text-[0.8461rem] font-mono ${className}`}>

@@ -23,7 +23,7 @@ import {TaskGetRenderer} from "./TaskGetRenderer.tsx";
 import {TaskListRenderer} from "./TaskListRenderer.tsx";
 import {TaskUpdateRenderer} from "./TaskUpdateRenderer.tsx";
 import {NotebookEditRenderer} from "./NotebookEditRenderer.tsx";
-import {FilesystemMcpRenderers} from "./FilesystemMcp";
+import {McpRenderers} from "./Mcp";
 
 interface ToolRendererProps {
     toolUse: ToolUseBlockDto;
@@ -56,5 +56,5 @@ export const ToolRendererMap = new Map<string, FC<ToolRendererProps>>([
     ['TaskOutput', TaskOutputRenderer],
     ['TaskStop', TaskStopRenderer],
     ['NotebookEdit', NotebookEditRenderer],
-    ...FilesystemMcpRenderers,
+    ...McpRenderers,
 ]);

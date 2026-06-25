@@ -1,6 +1,6 @@
 import {ToolUseBlockDto} from "@/dto";
-import {RendererProps, ToolHeader, ToolWrapper} from "../common";
-import {McpToolBody, McpToolRow} from "./_common";
+import {RendererProps, ToolHeader, ToolWrapper} from "../../common";
+import {McpToolBody, McpToolRow} from "../_common";
 
 class ListAllowedDirectoriesToolUseDto extends ToolUseBlockDto {
     declare input: Record<string, never>;

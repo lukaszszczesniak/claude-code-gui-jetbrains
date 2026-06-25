@@ -1,5 +1,5 @@
 import {FC} from "react";
-import {RendererProps} from "../common";
+import {RendererProps} from "../../common";
 import {ReadFileRenderer} from "./ReadFileRenderer";
 import {ReadMediaFileRenderer} from "./ReadMediaFileRenderer";
 import {ReadMultipleFilesRenderer} from "./ReadMultipleFilesRenderer";

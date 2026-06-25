@@ -1,8 +1,8 @@
 import {ToolUseBlockDto, ImageBlockDto, ContentBlockType} from "@/dto";
 import {getAdapter} from "@/adapters";
 import {cn} from "@/utils/cn";
-import {RendererProps, ToolHeader, ToolWrapper} from "../common";
-import {McpToolBody, McpToolRow} from "./_common";
+import {RendererProps, ToolHeader, ToolWrapper} from "../../common";
+import {McpToolBody, McpToolRow} from "../_common";
 
 class ReadMediaFileToolUseDto extends ToolUseBlockDto {
     declare input: {
