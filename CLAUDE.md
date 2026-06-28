@@ -2,151 +2,151 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 프로젝트 개요
+## Project Overview
 
-JetBrains IDE용 Claude Code GUI 플러그인. Cursor의 Claude Code 확장과 동일한 UX를 JetBrains 환경에서 제공하는 것이 목표.
+A Claude Code GUI plugin for JetBrains IDEs. The goal is to provide, in the JetBrains environment, the same UX as Cursor's Claude Code extension.
 
-## 아키텍처
+## Architecture
 
-3개 레이어로 구성:
+Composed of 3 layers:
 
-1. **Node.js Backend (유일한 백엔드)** - Claude Code CLI 실행, 세션/설정/파일 I/O, WebSocket 서버
-2. **WebView UI** - 채팅/세션/diff 카드 UI, Cursor UX 동일 구현 (WebSocket으로 Node.js와 통신)
-3. **Bridge (환경별 어댑터)** - BrowserBridge(브라우저) / KotlinBridge(JetBrains IDE 네이티브 API)
+1. **Node.js Backend (the only backend)** - Claude Code CLI execution, session/settings/file I/O, WebSocket server
+2. **WebView UI** - chat/session/diff card UI, implemented identically to Cursor UX (communicates with Node.js over WebSocket)
+3. **Bridge (per-environment adapter)** - BrowserBridge (browser) / KotlinBridge (JetBrains IDE native API)
 
-## 참고 저장소
+## Reference Repository
 
-구현 시 `idea-claude-code-gui` (GitHub) 저장소를 1차 기준으로 삼음. 우선순위: Cursor UX > 참고 저장소 > JetBrains 관행
+When implementing, use the `idea-claude-code-gui` (GitHub) repository as the primary reference. Priority: Cursor UX > reference repository > JetBrains conventions
 
-## 기술 제약
+## Technical Constraints
 
-- WebView는 JCEF 사용 (Swing UI 사용 금지, 권한 다이얼로그 예외)
-- 에이전트 런타임은 IDE 외부 프로세스로 분리
-- 이벤트 기반, 스트리밍 우선 설계
+- The WebView uses JCEF (Swing UI is prohibited, with the permission dialog as an exception)
+- The agent runtime is separated into a process external to the IDE
+- Event-driven, streaming-first design
 
-## 단일 백엔드 아키텍처
+## Single Backend Architecture
 
-WebView는 클라이언트 실행환경에 관계없이 항상 Node.js 백엔드와 WebSocket으로 통신한다.
+Regardless of the client runtime environment, the WebView always communicates with the Node.js backend over WebSocket.
 
-| 클라이언트 환경 | 부트스트랩 | 백엔드 | Bridge |
+| Client environment | Bootstrap | Backend | Bridge |
 |----------------|-----------|--------|--------|
-| 브라우저 | Vite dev server | Node.js WebSocket 서버 | BrowserBridge (no-op 등) |
-| JetBrains IDE | Kotlin이 Node.js spawn → localhost:PORT | Node.js WebSocket 서버 | KotlinBridge (IDE API) |
+| Browser | Vite dev server | Node.js WebSocket server | BrowserBridge (no-op, etc.) |
+| JetBrains IDE | Kotlin spawns Node.js → localhost:PORT | Node.js WebSocket server | KotlinBridge (IDE API) |
 
-**두 환경 모두 실제 제품이 동작하는 환경이다.** 브라우저 환경은 개발 전용이 아니며, 독립 배포 대상이다.
+**Both environments are environments in which the actual product runs.** The browser environment is not for development only; it is an independent deployment target.
 
-### 실행 모드 용어
+### Run Mode Terminology
 
-| 용어 | 의미 |
+| Term | Meaning |
 |------|------|
-| **JetBrains 모드** | IDE가 Node.js 백엔드를 spawn하고 JCEF WebView로 접속. `JETBRAINS_MODE=true` 환경변수로 활성화. |
-| **Standalone 모드** | IDE 외부에서 Node.js 백엔드를 실행하고 일반 브라우저로 접속. `JETBRAINS_MODE` 미설정 시 자동 적용. 부트스트랩 경로 2가지: ① 개발용 Vite dev server, ② 사용자 머신의 `ccg` 명령(터미널 런처). |
+| **JetBrains mode** | The IDE spawns the Node.js backend and connects via the JCEF WebView. Activated by the `JETBRAINS_MODE=true` environment variable. |
+| **Standalone mode** | Run the Node.js backend outside the IDE and connect via a regular browser. Applied automatically when `JETBRAINS_MODE` is unset. Two bootstrap paths: ① the Vite dev server for development, ② the `ccg` command on the user's machine (terminal launcher). |
 
-배포 산출물 이름도 이 용어를 따른다 — `claude-code-gui-standalone-v<ver>.tgz`는 standalone 모드용 backend + webview 런타임. JetBrains 모드 산출물은 마켓플레이스 zip(`claude-code-gui-jetbrains-<ver>.zip`).
+Distribution artifact names follow this terminology as well — `claude-code-gui-standalone-v<ver>.tgz` is the backend + webview runtime for standalone mode. The JetBrains-mode artifact is the marketplace zip (`claude-code-gui-jetbrains-<ver>.zip`).
 
-### 핵심 원칙
+### Core Principles
 
-- **유일한 백엔드는 Node.js**: 비즈니스 로직(세션, 설정, Claude CLI, 파일 I/O)은 모두 Node.js에서 처리
-- **Bridge는 ORM 어댑터**: 환경별로 반드시 달라야 하는 기능(에디터 탭, diff viewer 등)만 Bridge 인터페이스로 추상화
-- **Kotlin은 Node.js 뒤에 있는 구현체**: WebView는 Kotlin과 직접 통신하지 않음. Node.js가 IDE 네이티브 기능이 필요할 때 Bridge(Kotlin)를 호출
+- **The only backend is Node.js**: all business logic (sessions, settings, Claude CLI, file I/O) is handled in Node.js
+- **The Bridge is an ORM adapter**: only functionality that must necessarily differ per environment (editor tabs, diff viewer, etc.) is abstracted behind the Bridge interface
+- **Kotlin is an implementation behind Node.js**: the WebView does not communicate with Kotlin directly. When Node.js needs IDE-native functionality, it calls the Bridge (Kotlin)
 
-### 코드 중복 금지
+### No Code Duplication
 
-Node.js가 유일한 백엔드이므로, 비즈니스 로직의 듀얼 구현이 불필요하다. Kotlin에 비즈니스 로직을 구현하지 않는다.
+Since Node.js is the only backend, a dual implementation of business logic is unnecessary. Do not implement business logic in Kotlin.
 
-## 원본 데이터 보존 원칙
+## Principle of Preserving Original Data
 
-Claude Code CLI가 생성하는 원본 자료구조(JSONL 엔트리, 세션 메타데이터 등)는 **WebView 끝단까지 구조를 그대로 유지**해야 한다.
+The original data structures produced by the Claude Code CLI (JSONL entries, session metadata, etc.) must **keep their structure intact all the way to the WebView endpoint**.
 
-### 규칙
+### Rules
 
-1. **키/값 리네이밍 금지**: 원본 필드명을 중간 계층에서 다른 이름으로 바꾸지 않는다. (예: `title` → ~~`firstPrompt`~~, `createdAt` → ~~`created`~~)
-2. **중간 필터링 금지**: 중간 전달 계층(Node.js 백엔드)이 원본 데이터를 필터링하거나 누락시키지 않는다. 필터링은 최종 소비자인 WebView에서 책임진다.
-3. **정보 손실 금지**: 현재 UI에서 쓰지 않는 필드라도 전달 경로에서 제거하지 않는다. 향후 활용 가능성을 보존한다.
-4. **데이터 형변환은 허용**: 언어 간 타입 매핑(예: JSON → Kotlin data class → JSON)은 허용하되, 이 과정에서 키 이름이나 구조가 변하면 안 된다.
+1. **No key/value renaming**: do not rename original field names in the intermediate layers. (e.g., `title` → ~~`firstPrompt`~~, `createdAt` → ~~`created`~~)
+2. **No intermediate filtering**: the intermediate forwarding layer (Node.js backend) must not filter or drop original data. Filtering is the responsibility of the final consumer, the WebView.
+3. **No information loss**: even fields not currently used by the UI must not be removed from the forwarding path. Preserve the possibility of future use.
+4. **Data type conversion is allowed**: cross-language type mapping (e.g., JSON → Kotlin data class → JSON) is allowed, but key names or structure must not change in the process.
 
-### 이유
+### Rationale
 
-- 프로젝트가 아직 Claude Code의 원본 데이터를 전부 활용하지 못하고 있다. 중간 계층이 정보를 편집하면, 나중에 원본 구조를 다시 파악하는 데 불필요한 비용이 든다.
-- **어느 계층에서든 데이터를 보면 "Claude Code 원본이 어떻게 생겼는지"를 알 수 있어야 하고, 그 내용을 신뢰할 수 있어야 한다.**
+- The project does not yet fully utilize all of Claude Code's original data. If an intermediate layer edits the information, it creates unnecessary cost later when re-discovering the original structure.
+- **At any layer, looking at the data should let you understand "what the Claude Code original looks like," and that content must be trustworthy.**
 
-### 적용 범위
+### Scope
 
-| 계층 | 역할 | 해도 되는 것 | 하면 안 되는 것 |
+| Layer | Role | Allowed | Not allowed |
 |------|------|-------------|---------------|
-| Node.js 백엔드 (dev-bridge) | 원본 전달 | 타입 변환, 직렬화 | 필드 리네이밍, 필터링, 누락 |
-| WebView (React) | 최종 소비 | 필터링, 정렬, 표시용 가공 | — |
+| Node.js backend (dev-bridge) | Forward original | Type conversion, serialization | Field renaming, filtering, dropping |
+| WebView (React) | Final consumption | Filtering, sorting, display-oriented processing | — |
 
-## 일관된 작명 원칙 (Consistent Naming)
+## Consistent Naming
 
-같은 목적과 같은 행동을 가리키는 이름은, 계층과 언어에 관계없이 **동일한 단어**를 일관되게 사용한다.
+Names that refer to the same purpose and the same behavior must consistently use the **same word**, regardless of layer or language.
 
-### 규칙
+### Rules
 
-1. **하나의 행동에는 하나의 단어.** 메서드명, IPC 메시지 타입, 변수명, RPC 핸들러명 등 모든 곳에서 같은 동작이면 같은 verb를 쓴다. 파이프라인을 따라가며 읽을 때 단어가 바뀌면 다른 동작으로 오해한다. (예: ~~`create()` → `NEW_SESSION`~~ → `create()` → `CREATE_SESSION`)
-2. **다른 행동에는 다른 단어.** "현재 탭에서 세션 초기화"와 "새 에디터 탭 열기"처럼 의미가 다른 동작이 같은 이름을 공유하면 안 된다.
-3. **verb는 명확한 동사를 사용한다.** CRUD 동사(`create`, `get`, `update`, `delete`) 또는 명확한 행위 동사(`load`, `clear`, `open`, `stop`)를 쓴다. `new`, `change` 같은 모호한 단어는 피한다.
+1. **One word per behavior.** Use the same verb for the same action everywhere — method names, IPC message types, variable names, RPC handler names, etc. When reading along the pipeline, a changing word is mistaken for a different action. (e.g., ~~`create()` → `NEW_SESSION`~~ → `create()` → `CREATE_SESSION`)
+2. **Different words for different behaviors.** Actions with different meanings, such as "reset the session in the current tab" and "open a new editor tab," must not share the same name.
+3. **Use clear verbs.** Use CRUD verbs (`create`, `get`, `update`, `delete`) or clear action verbs (`load`, `clear`, `open`, `stop`). Avoid ambiguous words like `new` or `change`.
 
-### IPC 메시지 타입은 `MessageType` enum으로 (단일 소스)
+### IPC Message Types via the `MessageType` enum (single source)
 
-webview↔backend(및 Node↔Kotlin) 사이를 오가는 모든 IPC 메시지 `type`은 plain 문자열 리터럴 대신 `MessageType` enum을 사용한다.
+Every IPC message `type` that travels between webview↔backend (and Node↔Kotlin) uses the `MessageType` enum instead of a plain string literal.
 
-- **정의 위치**: `webview/src/shared/message-type.ts` ↔ `backend/src/shared/message-type.ts` (미러 디렉토리, 1:1 동기화 필수 — `shared/CLAUDE.md` 참조). webview는 `@/shared`, backend는 `../shared`(경로 깊이에 맞게)에서 import.
-- **멤버명 = 문자열 값**: `MessageType.GET_ACCOUNT === 'GET_ACCOUNT'`. 와이어 포맷과 코드가 동일하게 읽히고 grep된다. 이것이 위 "하나의 행동에는 하나의 단어" 원칙을 IPC 경계에서 강제하는 장치다.
-- **금지**: `send('GET_ACCOUNT')` 같은 plain 문자열. 반드시 `send(MessageType.GET_ACCOUNT)`.
-- **새 메시지 타입 추가 시**: enum에 멤버를 추가하고 **각 값의 의미를 영어 주석**으로 남긴다(방향: inbound webview→backend / outbound backend→webview / Node↔Kotlin / 로깅 채널). 양쪽 shared에 동일 반영.
-- **적용 범위**: `bridge.request`/`send`/`subscribe`/`waitFor`, backend 라우팅 `switch...case`, `connections.sendTo`/`broadcast`, JSON-RPC `method`, 로깅 채널(`LOG_BATCH`) 등 메시지 `type`이 쓰이는 모든 곳. 단, 메시지 봉투(`type`)가 아닌 `payload` 내부 하위 분류(예: CLI_EVENT payload의 `CLI_ERROR`)는 대상이 아니다.
+- **Definition location**: `webview/src/shared/message-type.ts` ↔ `backend/src/shared/message-type.ts` (mirror directories, 1:1 sync required — see `shared/CLAUDE.md`). The webview imports from `@/shared`, the backend from `../shared` (matching the path depth).
+- **Member name = string value**: `MessageType.GET_ACCOUNT === 'GET_ACCOUNT'`. The wire format and the code read and grep identically. This is the mechanism that enforces the "one word per behavior" principle above at the IPC boundary.
+- **Prohibited**: plain strings like `send('GET_ACCOUNT')`. Always `send(MessageType.GET_ACCOUNT)`.
+- **When adding a new message type**: add a member to the enum and **leave an English comment describing the meaning of each value** (direction: inbound webview→backend / outbound backend→webview / Node↔Kotlin / logging channel). Reflect identically in both shared copies.
+- **Scope**: `bridge.request`/`send`/`subscribe`/`waitFor`, backend routing `switch...case`, `connections.sendTo`/`broadcast`, JSON-RPC `method`, the logging channel (`LOG_BATCH`), and everywhere else a message `type` is used. However, sub-classifications inside the `payload` rather than the message envelope (`type`) — e.g., `CLI_ERROR` within the CLI_EVENT payload — are out of scope.
 
-## 상태 머신
+## State Machine
 
 Idle → Streaming → Waiting Permission → Has Diff → Error
 
-## UI 용어 정의
+## UI Terminology
 
-| 용어 | 설명 |
+| Term | Description |
 |------|------|
-| **상단바** | 채팅 화면 상단의 새 탭 버튼과 세션 드롭다운 토글 버튼을 포함하는 영역 요소 |
-| **세션 드롭다운 토글 버튼** | 상단바 좌측에 현재 세션의 제목을 표시하는 드롭다운 토글 버튼 |
-| **세션 드롭다운** | 세션 드롭다운 토글 버튼을 클릭해 열리는 드롭다운 메뉴 |
-| **새 탭 버튼** | 상단바 우측에 있는 플러스 버튼. 클릭 시 IDE에서 새로운 Claude Code 에디터 탭을 열음 |
-| **초기화된 세션** | 아직 첫 번째 메시지도 시작하지 않아서 세션이 생성되지 않은 상태 |
-| **인풋배너** | 채팅 인풋 바로 위에 뜨는 안내 줄(범용 컴포넌트 `InputBanner`). 화면 최상단의 상단배너(`BannerArea`)와 구분된다. 좌측 문구 + 우측 액션 + 가장 우측 X 닫기로 구성. 텔레메트리 동의 안내 등에 재사용 |
+| **Top bar** | The region element at the top of the chat screen containing the new tab button and the session dropdown toggle button |
+| **Session dropdown toggle button** | The dropdown toggle button on the left of the top bar that displays the current session's title |
+| **Session dropdown** | The dropdown menu that opens by clicking the session dropdown toggle button |
+| **New tab button** | The plus button on the right of the top bar. Clicking it opens a new Claude Code editor tab in the IDE |
+| **Uninitialized session** | A state in which no session has been created yet because not even the first message has started |
+| **Input banner** | The guidance line that appears just above the chat input (the general-purpose `InputBanner` component). Distinct from the top-of-screen banner (`BannerArea`). Composed of left-side text + right-side action + a rightmost X close button. Reused for things like telemetry-consent guidance |
 
-## 빌드 명령어
+## Build Commands
 
-모든 빌드는 `bash ./scripts/build.sh <command>` 를 통해 실행한다. 직접 `cd`, `pnpm`, `./gradlew` 명령을 조합하지 않는다.
+All builds are run through `bash ./scripts/build.sh <command>`. Do not directly combine `cd`, `pnpm`, or `./gradlew` commands.
 
-> **중요**: `bash ./scripts/build.sh -h` 로 전체 명령 목록을 확인할 수 있다.
+> **Important**: You can see the full list of commands with `bash ./scripts/build.sh -h`.
 
-### 주요 명령
+### Main Commands
 
-| 명령 | 용도 |
+| Command | Purpose |
 |------|------|
-| `bash ./scripts/build.sh be-build` | 백엔드 빌드 |
-| `bash ./scripts/build.sh wv-build` | 웹뷰 빌드 |
-| `bash ./scripts/build.sh build` | 플러그인 빌드 |
-| `bash ./scripts/build.sh full-build` | 전체 빌드 (be + wv + plugin) |
-| `bash ./scripts/build.sh dist` | 배포용 빌드 (be + wv + buildPlugin) |
-| `bash ./scripts/build.sh run-ide` | IDE 테스트 실행 |
-| `bash ./scripts/build.sh clear-cache` | 빌드 캐시/결과물 초기화 |
-| `bash ./scripts/build.sh wv-lint` | WebView TypeScript 체크 |
-| `bash ./scripts/build.sh wv-test` | WebView 테스트 |
-| `bash ./scripts/build.sh all` | 전체 빌드 + IDE 실행 |
+| `bash ./scripts/build.sh be-build` | Build the backend |
+| `bash ./scripts/build.sh wv-build` | Build the webview |
+| `bash ./scripts/build.sh build` | Build the plugin |
+| `bash ./scripts/build.sh full-build` | Full build (be + wv + plugin) |
+| `bash ./scripts/build.sh dist` | Distribution build (be + wv + buildPlugin) |
+| `bash ./scripts/build.sh run-ide` | Run the IDE for testing |
+| `bash ./scripts/build.sh clear-cache` | Reset build cache/artifacts |
+| `bash ./scripts/build.sh wv-lint` | WebView TypeScript check |
+| `bash ./scripts/build.sh wv-test` | WebView tests |
+| `bash ./scripts/build.sh all` | Full build + run IDE |
 
-### 에이전트 행동 지침
+### Agent Behavior Guidelines
 
-1. **빌드/테스트 시**: 반드시 `bash ./scripts/build.sh` 사용
-2. **cd 금지**: 스크립트가 내부적으로 `pnpm -C`, `gradlew -p` 로 경로 처리
-3. **새 명령 필요 시**: `scripts/build.sh`에 case 추가 제안
-4. **모든 셸 명령어는 `bash` 를 앞에 붙여서 실행**: 예) `bash ./scripts/build.sh build`, `bash -c "ls -la"` 등
+1. **For build/test**: always use `bash ./scripts/build.sh`
+2. **No cd**: the script handles paths internally with `pnpm -C` and `gradlew -p`
+3. **When a new command is needed**: propose adding a case to `scripts/build.sh`
+4. **Run every shell command prefixed with `bash`**: e.g., `bash ./scripts/build.sh build`, `bash -c "ls -la"`, etc.
 
-## 로컬 스킬
+## Local Skills
 
-프로젝트 로컬 스킬은 `.claude/skills/` 에 위치한다. oh-my-claudecode 스킬이 아닌 **프로젝트 로컬 스킬**을 우선 사용한다.
+Project-local skills are located in `.claude/skills/`. Prefer **project-local skills** over oh-my-claudecode skills.
 
-> **구조 규칙**: 각 스킬은 반드시 `.claude/skills/<이름>/SKILL.md` 형태(폴더 + SKILL.md)여야 하며, SKILL.md 상단에 `name`·`description` YAML frontmatter가 있어야 자연어 요청 시 자동 트리거된다. 평면 `.claude/skills/<이름>.md` 파일은 Claude Code가 스킬로 인식하지 못한다.
+> **Structure rule**: each skill must be of the form `.claude/skills/<name>/SKILL.md` (folder + SKILL.md), and SKILL.md must have `name`·`description` YAML frontmatter at the top so it auto-triggers on natural-language requests. A flat `.claude/skills/<name>.md` file is not recognized as a skill by Claude Code.
 
-| 스킬 | 파일 경로 | 트리거 키워드 |
+| Skill | File path | Trigger keywords |
 |------|-----------|--------------|
 | `/cc-gui-reporter` | `.claude/skills/cc-gui-reporter/SKILL.md` | "마켓플레이스 확인", "리뷰/댓글/대댓글 확인", "미응답", "미해결 버그", "현황", "리포트", "report", "triage" |
 | `/deploy` | `.claude/skills/deploy/SKILL.md` | "배포", "deploy", "릴리즈", "release", "publish", "마켓플레이스 발행" |
@@ -154,71 +154,71 @@ Idle → Streaming → Waiting Permission → Has Diff → Error
 | `/precheck` | `.claude/skills/precheck/SKILL.md` | "프리체크", "precheck", "배포 전 검수" |
 | `/release-monitor` | `.claude/skills/release-monitor/SKILL.md` | "릴리즈 모니터링", "release-monitor", "마켓플레이스 모니터링", "approval 확인" |
 
-`/cc-gui-reporter`의 데이터 수집은 `./ignore/cc-gui-report.sh` 가 담당한다 (사용자가 직접 실행 가능, 읽기 전용. git 비추적 — `ignore/` 폴더).
+Data collection for `/cc-gui-reporter` is handled by `./ignore/cc-gui-report.sh` (the user can run it directly; read-only. Not tracked by git — the `ignore/` folder).
 
-## JetBrains SDK API 사용 주의사항
+## Notes on Using the JetBrains SDK API
 
-JetBrains Marketplace 배포 시 **Plugin Verifier**가 API 사용을 자동 검증한다.
+When publishing to the JetBrains Marketplace, the **Plugin Verifier** automatically validates API usage.
 
-- **Deprecated API** 사용 → 경고(warning)
-- **Internal API** 사용 → 오류(error), 배포 거부 가능
-- `EnvironmentUtil` 등 internal/deprecated 가능성이 있는 클래스 주의
-- `@ApiStatus.Internal`, `impl` 패키지 내 클래스는 절대 사용 금지
-- 배포 전 `bash ./scripts/build.sh dist`로 빌드 후 Plugin Verifier 결과 반드시 확인
+- Using **Deprecated API** → warning
+- Using **Internal API** → error, deployment may be rejected
+- Beware of classes that may be internal/deprecated, such as `EnvironmentUtil`
+- Never use `@ApiStatus.Internal` classes or classes inside `impl` packages
+- Before deployment, build with `bash ./scripts/build.sh dist` and always check the Plugin Verifier results
 
-## JetBrains Marketplace 승인 가이드라인 (v1.3, 2026-03-31)
+## JetBrains Marketplace Approval Guidelines (v1.3, 2026-03-31)
 
-배포 시 아래 기준을 모두 충족해야 한다. 위반 시 승인 지연 또는 거부될 수 있다.
+When deploying, all of the criteria below must be met. Violations may delay or reject approval.
 
-### 1. 플러그인 콘텐츠
+### 1. Plugin Content
 
-| 항목 | 요구사항 |
+| Item | Requirement |
 |------|---------|
-| **로고** | 기본 IntelliJ 템플릿 로고 사용 금지. JetBrains 제품 로고와 유사 금지. **40x40px SVG** 필수 |
-| **이름** | 고유해야 함. 최대 30자. Latin 문자/숫자/기호만 허용. "Plugin", "IntelliJ", "JetBrains" 등 JetBrains 제품명 포함 금지. "A"나 "."로 시작하여 검색 순위 조작 금지. "Support", "Integration" 단독 사용 지양 |
-| **벤더** | 벤더 웹사이트와 이메일이 유효해야 함. 사칭/허위 표시 금지 |
-| **설명** | 영어 필수(1차 언어). 올바른 포맷/맞춤법/문법. 미디어 정상 표시 필수 |
-| **변경 노트** | 플레이스홀더 텍스트("Add change notes here") 금지. 관련 정보만 포함 |
-| **링크** | 모든 외부 링크 유효 필수. 플러그인/저자와 관련된 링크만 허용 |
-| **자산** | JetBrains 브랜드 자산 침해 금지. 저작권/상표권 침해 금지 |
+| **Logo** | Do not use the default IntelliJ template logo. Do not resemble JetBrains product logos. **40x40px SVG** required |
+| **Name** | Must be unique. Max 30 characters. Only Latin letters/digits/symbols allowed. Must not include JetBrains product names such as "Plugin", "IntelliJ", "JetBrains". Must not manipulate search ranking by starting with "A" or ".". Avoid using "Support" or "Integration" on their own |
+| **Vendor** | The vendor website and email must be valid. No impersonation/false representation |
+| **Description** | English required (primary language). Correct formatting/spelling/grammar. Media must display correctly |
+| **Change notes** | Placeholder text ("Add change notes here") prohibited. Include only relevant information |
+| **Links** | All external links must be valid. Only links related to the plugin/author are allowed |
+| **Assets** | No infringement of JetBrains brand assets. No copyright/trademark infringement |
 
-### 2. 플러그인 기능
+### 2. Plugin Functionality
 
-| 항목 | 요구사항 |
+| Item | Requirement |
 |------|---------|
-| **호환성** | 최소 1개 JetBrains 제품과 호환. 정의된 호환 제품/버전에서 설치 가능해야 함 |
-| **Plugin Verifier** | 업로드마다 바이너리 호환성 검증 필수. **Internal API 사용 위반 금지** |
-| **보안** | 보안 취약점이나 개인정보 문제 없어야 함 |
-| **성능** | JetBrains 제품 성능에 심각한 악영향 금지 |
-| **간섭 금지** | JetBrains 제품 기능(라이선싱, 구독, 트라이얼, 업그레이드 플로우 포함) 수정/숨김/가로채기/간섭 금지 |
-| **데이터 수집** | 개인/통계/텔레메트리 데이터 처리 시 **명시적 사용자 동의 필수**. 플러그인 비활성 시 데이터 전송 금지 |
-| **검색 조작 금지** | 메타데이터/마케팅 자산으로 검색 결과 조작이나 Marketplace 기능 방해 금지 |
+| **Compatibility** | Compatible with at least 1 JetBrains product. Must be installable on the defined compatible products/versions |
+| **Plugin Verifier** | Binary compatibility verification required on every upload. **No Internal API usage violations** |
+| **Security** | Must have no security vulnerabilities or privacy issues |
+| **Performance** | Must not seriously degrade JetBrains product performance |
+| **No interference** | Must not modify/hide/intercept/interfere with JetBrains product features (including licensing, subscription, trial, and upgrade flows) |
+| **Data collection** | **Explicit user consent required** when processing personal/statistical/telemetry data. No data transmission while the plugin is disabled |
+| **No search manipulation** | Must not manipulate search results or disrupt Marketplace features via metadata/marketing assets |
 
-### 3. 법적 요구사항
+### 3. Legal Requirements
 
-- Developer Agreement 동의 필수
-- 모든 플러그인에 Developer EULA 필수
-- 오픈소스 라이선스 플러그인은 **소스 코드 링크 필수**
-- 개인정보 수집 시 **Privacy Policy 필수**
-- EEA 소비자 보호법 관련 trader/non-trader 지위 선언 필수
+- Agreement to the Developer Agreement is required
+- A Developer EULA is required for every plugin
+- Open-source-licensed plugins **require a source code link**
+- A **Privacy Policy is required** when collecting personal data
+- A trader/non-trader status declaration related to EEA consumer protection law is required
 
-### 에이전트 체크리스트 (배포 전 확인)
+### Agent Checklist (verify before deployment)
 
-배포(`/deploy`) 실행 전 아래 항목을 점검한다:
+Before running deployment (`/deploy`), check the following items:
 
-- [ ] 로고: 40x40px SVG, JetBrains 로고와 비유사
-- [ ] 이름: 30자 이내, JetBrains 제품명 미포함
-- [ ] 설명: 영어 우선, 깨진 링크/이미지 없음
-- [ ] 변경 노트: 플레이스홀더 아닌 실제 변경사항 기재
-- [ ] 모든 외부 링크 유효
-- [ ] Plugin Verifier 통과 (Internal API 위반 0건)
-- [ ] 개인정보 수집 시 Privacy Policy 링크 존재
-- [ ] 소스 코드 링크 존재 (오픈소스)
+- [ ] Logo: 40x40px SVG, not similar to the JetBrains logo
+- [ ] Name: within 30 characters, no JetBrains product name
+- [ ] Description: English-first, no broken links/images
+- [ ] Change notes: actual changes written, not a placeholder
+- [ ] All external links valid
+- [ ] Plugin Verifier passes (0 Internal API violations)
+- [ ] Privacy Policy link present when collecting personal data
+- [ ] Source code link present (open source)
 
-## 로깅 시스템
+## Logging System
 
-[logging.md](./logging.md) 참조.
+See [logging.md](./logging.md).
 
-## 작업 플랜
+## Work Plan
 
-작업을 시작하기 전에 `ignore/plan.md`를 반드시 읽고, 에이전트 지시문을 따를 것. 대화 중 "플랜 파일"이라 하면 이 파일을 의미한다. 사용자가 다음 작업을 물어본다면 이 플랜 파일을 기반으로 먼저 답변할 것.
+Before starting work, you must read `ignore/plan.md` and follow the agent instructions. When the conversation refers to the "plan file," it means this file. If the user asks what to do next, answer based on this plan file first.

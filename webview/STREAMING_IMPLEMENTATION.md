@@ -2,48 +2,48 @@
 
 ## Overview
 
-Phase 1.4 완료: WebView UI에서 Claude의 스트리밍 응답을 표시하는 핸들러 구현
+Phase 1.4 complete: Implemented a handler for displaying Claude's streaming responses in the WebView UI
 
-## 구현된 컴포넌트
+## Implemented Components
 
 ### 1. hooks/useStreaming.ts
-스트리밍 상태 관리 훅
+Streaming state management hook
 
-**주요 기능:**
-- 스트리밍 상태 추적 (idle, streaming, paused, error)
-- 버퍼 관리 및 청크 큐잉
-- requestAnimationFrame 기반 스로틀링 (60fps)
-- useBridge 훅과 통합하여 IPC 메시지 수신
+**Key features:**
+- Streaming state tracking (idle, streaming, paused, error)
+- Buffer management and chunk queuing
+- requestAnimationFrame-based throttling (60fps)
+- Integration with the useBridge hook to receive IPC messages
 
 **API:**
 ```typescript
 const {
-  state,              // 현재 스트리밍 상태
-  buffer,             // 현재 메시지의 누적 버퍼
-  currentMessageId,   // 스트리밍 중인 메시지 ID
-  isPaused,           // 일시정지 상태
-  pause,              // 일시정지
-  resume,             // 재개
-  reset,              // 상태 초기화
-  getBufferForMessage // 특정 메시지 버퍼 조회
+  state,              // Current streaming state
+  buffer,             // Accumulated buffer for the current message
+  currentMessageId,   // ID of the message being streamed
+  isPaused,           // Paused state
+  pause,              // Pause
+  resume,             // Resume
+  reset,              // Reset state
+  getBufferForMessage // Retrieve the buffer for a specific message
 } = useStreaming(options);
 ```
 
-**성능 최적화:**
-- RAF 기반 청크 플러싱으로 렌더 성능 보장
-- 최대 버퍼 크기 제한 (기본 100KB)
-- 스로틀링으로 불필요한 리렌더 방지
+**Performance optimizations:**
+- RAF-based chunk flushing to guarantee render performance
+- Maximum buffer size limit (default 100KB)
+- Throttling to prevent unnecessary re-renders
 
 ### 2. components/StreamingMessage.tsx
-스트리밍 메시지 렌더러
+Streaming message renderer
 
-**주요 기능:**
-- Streamdown 라이브러리를 사용한 증분 마크다운 렌더링
-- 타이핑 애니메이션 효과
-- Shiki 기반 코드 블록 구문 하이라이팅
-- 불완전한 마크다운 처리 (코드 펜스 미완료 등)
+**Key features:**
+- Incremental Markdown rendering using the Streamdown library
+- Typing animation effect
+- Shiki-based code block syntax highlighting
+- Handling of incomplete Markdown (e.g., unclosed code fences)
 
-**사용 예시:**
+**Usage example:**
 ```tsx
 <StreamingMessage
   content={messageContent}
@@ -52,21 +52,21 @@ const {
 />
 ```
 
-**특징:**
-- 다크/라이트 테마 자동 지원 (Shiki)
-- 스트리밍 중 시각적 인디케이터 (점 애니메이션)
-- 불완전 코드 블록에 커서 표시
+**Highlights:**
+- Automatic dark/light theme support (Shiki)
+- Visual indicator while streaming (dot animation)
+- Cursor display on incomplete code blocks
 
 ### 3. components/MessageList.tsx
-메시지 리스트 컨테이너
+Message list container
 
-**주요 기능:**
-- 날짜별 메시지 그룹화
-- 자동 스크롤 (사용자가 수동으로 스크롤하지 않은 경우)
-- 스크롤 앵커 기반 위치 유지
-- 재시도/복사 액션 버튼
+**Key features:**
+- Grouping messages by date
+- Auto-scroll (when the user has not scrolled manually)
+- Position preservation based on a scroll anchor
+- Retry/copy action buttons
 
-**사용 예시:**
+**Usage example:**
 ```tsx
 <MessageList
   messages={messages}
@@ -76,67 +76,67 @@ const {
 />
 ```
 
-**UX 최적화:**
-- 스크롤 위치 감지 및 "맨 아래로" 버튼
-- 메시지 호버 시 액션 버튼 표시
-- 도구 사용(ToolUse) 상태 표시
-- 컨텍스트 정보 표시
+**UX optimizations:**
+- Scroll position detection and a "scroll to bottom" button
+- Action buttons shown on message hover
+- Tool usage (ToolUse) status display
+- Context information display
 
 ### 4. utils/markdownParser.ts
-마크다운 유틸리티
+Markdown utilities
 
-**주요 함수:**
-- `extractCodeBlocks()` - 코드 블록 추출
-- `isMarkdownComplete()` - 마크다운 완성도 검사
-- `isInsideCodeBlock()` - 코드 블록 내부 여부 확인
-- `escapeHtml()` - HTML 이스케이프
-- `formatCode()` - 코드 포맷팅
-- `detectLanguage()` - 코드 언어 자동 감지
+**Key functions:**
+- `extractCodeBlocks()` - Extract code blocks
+- `isMarkdownComplete()` - Check Markdown completeness
+- `isInsideCodeBlock()` - Check whether a position is inside a code block
+- `escapeHtml()` - HTML escaping
+- `formatCode()` - Code formatting
+- `detectLanguage()` - Automatic code language detection
 
-## 기술 스택
+## Tech Stack
 
-- **React 18** - UI 프레임워크
-- **TypeScript** - 타입 안전성
-- **Streamdown 2.1** - 스트리밍 마크다운 렌더링
-- **Shiki** - 구문 하이라이팅
-- **Tailwind CSS** - 스타일링
-- **JCEF** - WebView 호스팅 (JetBrains)
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **Streamdown 2.1** - Streaming Markdown rendering
+- **Shiki** - Syntax highlighting
+- **Tailwind CSS** - Styling
+- **JCEF** - WebView hosting (JetBrains)
 
-## 통합 가이드
+## Integration Guide
 
-### IPC 메시지 프로토콜
+### IPC Message Protocol
 
-Kotlin 브리지에서 다음 메시지를 전송해야 함:
+The Kotlin bridge must send the following messages:
 
 ```typescript
-// 스트리밍 시작
+// Streaming start
 {
   type: 'stream:start',
   payload: { messageId: string }
 }
 
-// 청크 수신
+// Chunk received
 {
   type: 'stream:chunk',
   payload: { messageId: string, delta: string }
 }
 
-// 스트리밍 종료
+// Streaming end
 {
   type: 'stream:end',
   payload: { messageId: string }
 }
 
-// 에러 발생
+// Error occurred
 {
   type: 'stream:error',
   payload: { error: string }
 }
 ```
 
-### 사용 예시
+### Usage Example
 
-전체 통합 예시는 `examples/StreamingExample.tsx` 참조:
+See `examples/StreamingExample.tsx` for a full integration example:
 
 ```tsx
 import { useStreaming, useChat } from './hooks';
@@ -155,51 +155,51 @@ function ChatPanel() {
 }
 ```
 
-## 파일 구조
+## File Structure
 
 ```
 webview/src/
 ├── hooks/
-│   ├── useStreaming.ts          # 스트리밍 상태 관리
+│   ├── useStreaming.ts          # Streaming state management
 │   └── index.ts                 # Export
 ├── components/
-│   ├── StreamingMessage.tsx     # 마크다운 렌더러
-│   ├── MessageList.tsx          # 메시지 리스트
+│   ├── StreamingMessage.tsx     # Markdown renderer
+│   ├── MessageList.tsx          # Message list
 │   └── index.ts                 # Export
 ├── utils/
-│   └── markdownParser.ts        # 마크다운 유틸
+│   └── markdownParser.ts        # Markdown utilities
 └── examples/
-    └── StreamingExample.tsx     # 통합 예시
+    └── StreamingExample.tsx     # Integration example
 ```
 
-## 검증 완료
+## Verification Complete
 
-### TypeScript 컴파일
+### TypeScript Compilation
 ```bash
 npm run lint
 # ✓ No errors
 ```
 
-### 프로덕션 빌드
+### Production Build
 ```bash
 npm run build
 # ✓ Built successfully
 # Output: ../src/main/resources/webview/
 ```
 
-### 번들 크기
+### Bundle Size
 - index.js: 612.26 kB (gzipped: 191.58 kB)
 - index.css: 18.83 kB (gzipped: 4.37 kB)
 
-## 다음 단계
+## Next Steps
 
-1. **Phase 1.5** - 툴 사용 권한 다이얼로그 구현
-2. **Phase 1.6** - Diff 카드 컴포넌트 구현
-3. Kotlin 플러그인과 IPC 메시지 프로토콜 연동
-4. 실제 Claude API 스트리밍 응답 테스트
+1. **Phase 1.5** - Implement the tool usage permission dialog
+2. **Phase 1.6** - Implement the Diff card component
+3. Integrate the IPC message protocol with the Kotlin plugin
+4. Test streaming responses against the real Claude API
 
-## 참고 자료
+## References
 
-- [Streamdown 문서](https://github.com/jjaimealeman/streamdown)
-- [Shiki 테마](https://shiki.style/themes)
+- [Streamdown documentation](https://github.com/jjaimealeman/streamdown)
+- [Shiki themes](https://shiki.style/themes)
 - [JetBrains Platform UI Guidelines](https://plugins.jetbrains.com/docs/intellij/user-interface-components.html)

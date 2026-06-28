@@ -2,22 +2,22 @@
 
 ## Overview
 
-Phase 2.3 구현: Tool use 권한 요청을 위한 모달 다이얼로그 및 배너 UI
+Phase 2.3 implementation: Modal dialog and banner UI for tool use permission requests
 
 ## Design Direction: INDUSTRIAL PRECISION
 
-신뢰와 명확성을 위한 실용적이고 기능적인 디자인:
+A practical, functional design for trust and clarity:
 
-- **Risk Communication**: 색상 코드로 즉각적인 위험도 인지 (Low/Medium/High)
-- **Hierarchy**: 중요 정보를 시각적 최상위에 배치
-- **Keyboard Support**: Enter/Esc 단축키로 빠른 승인/거부
-- **Typography**: 모노스페이스 폰트로 기술적 신뢰감 강조
+- **Risk Communication**: Immediate risk awareness through color codes (Low/Medium/High)
+- **Hierarchy**: Place important information at the top of the visual hierarchy
+- **Keyboard Support**: Fast approve/deny via Enter/Esc shortcuts
+- **Typography**: Emphasize technical trust with a monospace font
 
 ## Components
 
 ### 1. PermissionDialog (Modal)
 
-전체 화면 모달 다이얼로그로 상세 권한 요청 표시.
+Displays detailed permission requests in a full-screen modal dialog.
 
 **Features:**
 - Risk level indicator (Low/Medium/High) with color coding
@@ -50,7 +50,7 @@ import { PermissionDialog } from './components';
 
 ### 2. PermissionBanner (Inline)
 
-컴팩트한 인라인 배너로 빠른 승인 제공.
+Provides quick approval through a compact inline banner.
 
 **Features:**
 - Compact one-line design
@@ -73,7 +73,7 @@ import { PermissionBanner } from './components';
 
 ### 3. usePermissions Hook
 
-Permission 상태 관리 및 자동 위험도 평가.
+Permission state management and automatic risk assessment.
 
 **Features:**
 - Automatic risk assessment based on tool type

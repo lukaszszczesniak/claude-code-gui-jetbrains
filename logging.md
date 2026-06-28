@@ -1,77 +1,77 @@
-# 로깅 시스템
+# Logging System
 
-백엔드와 WebView의 모든 `console.*` 출력을 파일에 기록한다.
+Records all `console.*` output from the backend and WebView to a file.
 
-## 구조
+## Structure
 
-| 구성 요소 | 파일 | 역할 |
+| Component | File | Role |
 |----------|------|------|
-| `FileLogger` | `backend/src/logging/file-logger.ts` | 파일 쓰기, 로테이션(5MB), 용량 관리(2GB) |
-| `LogWebSocketServer` | `backend/src/logging/log-ws.ts` | `/logs` 전용 WebSocket, WebView 로그 수신 |
-| `Logger` | `backend/src/logging/logger.ts` | 파사드. console 인터셉트 + FileLogger + LogWS 통합 |
-| `LogForwarder` | `webview/src/api/logging/LogForwarder.ts` | WebView console.* 캡처 → 백엔드 배치 전송 |
+| `FileLogger` | `backend/src/logging/file-logger.ts` | File writing, rotation (5MB), capacity management (2GB) |
+| `LogWebSocketServer` | `backend/src/logging/log-ws.ts` | `/logs`-dedicated WebSocket, receives WebView logs |
+| `Logger` | `backend/src/logging/logger.ts` | Facade. console interception + FileLogger + LogWS integration |
+| `LogForwarder` | `webview/src/api/logging/LogForwarder.ts` | Captures WebView console.* → batch-sends to backend |
 
-## 로그 파일 위치
+## Log File Location
 
 ```
 ~/.claude-code-gui/logs/
-  server.log                          ← 활성 로그
-  server-20260313T153000123Z.log      ← 아카이브
+  server.log                          ← active log
+  server-20260313T153000123Z.log      ← archive
 ```
 
-## 로그 형식
+## Log Format
 
 ```
 {ISO timestamp} {LEVEL} [{source}][{sessionId?}] {message}
 ```
 
-예시:
+Example:
 ```
 2026-03-13T14:30:22.123Z ERROR [node-backend] WebSocket server listening on port 3456
 2026-03-13T14:31:00.345Z LOG [webview][abc123] SessionDropdown rendered
 ```
 
-## WebSocket 채널
+## WebSocket Channels
 
-| 경로 | 용도 |
+| Path | Purpose |
 |------|------|
-| `/ws` | 채팅/스트리밍 (기존) |
-| `/logs` | 로그 전용 (WebView → 백엔드 로그 전송 + 실시간 로그 브로드캐스트) |
+| `/ws` | Chat/streaming (existing) |
+| `/logs` | Log-dedicated (WebView → backend log forwarding + real-time log broadcast) |
 
-## 규칙
+## Rules
 
-- **외부 로깅 라이브러리 사용하지 않음**: `createWriteStream` 기반 직접 구현
-- **console 인터셉트는 원본 함수를 반드시 유지**: JetBrains 모드에서 Kotlin이 stderr를 읽으므로, 원본 `console.error` 등이 stderr로 출력되어야 함
-- **재진입 방지**: Logger 내부에서 console을 호출하면 무한 재귀가 발생하므로 `isIntercepting` 플래그로 차단
-- **로테이션 중 로그 유실 방지**: `isRotating` + `rotationBuffer` 메커니즘 사용
-- **Graceful shutdown**: `stream.end()` + `finish` 이벤트 대기 (5초 타임아웃)
-- **초기화 순서**: `initLogger()` → `interceptConsole()` → 서버 시작 → `setLogWs()` (LogWS 미설정 구간에서는 파일 기록만)
+- **No external logging libraries**: implemented directly on top of `createWriteStream`
+- **console interception must always preserve the original functions**: in JetBrains mode Kotlin reads stderr, so the original `console.error` etc. must still output to stderr
+- **Reentrancy prevention**: calling console from within the Logger would cause infinite recursion, so it is blocked with the `isIntercepting` flag
+- **Preventing log loss during rotation**: uses the `isRotating` + `rotationBuffer` mechanism
+- **Graceful shutdown**: `stream.end()` + waiting for the `finish` event (5-second timeout)
+- **Initialization order**: `initLogger()` → `interceptConsole()` → server start → `setLogWs()` (during the period when LogWS is not yet set, only file recording happens)
 
-## 로테이션
+## Rotation
 
-- **기준**: 활성 로그(`server.log`)가 50MB 초과 시
-- **아카이브 파일명**: `server-{timestamp}.log` (timestamp: ISO 8601에서 `:`, `.` 제거)
-- **보관 한도**: `logs/` 폴더 총합 2GB, 초과 시 오래된 아카이브부터 삭제
-- **로테이션 중 버퍼링**: `isRotating` 플래그 + `rotationBuffer[]`에 적재 → 새 stream open 후 flush
+- **Criterion**: when the active log (`server.log`) exceeds 50MB
+- **Archive filename**: `server-{timestamp}.log` (timestamp: ISO 8601 with `:` and `.` removed)
+- **Retention limit**: 2GB total for the `logs/` folder; when exceeded, the oldest archives are deleted first
+- **Buffering during rotation**: `isRotating` flag + accumulation into `rotationBuffer[]` → flush after opening the new stream
 
-## 초기화 흐름
+## Initialization Flow
 
-### 백엔드 (`server.ts`)
+### Backend (`server.ts`)
 
 ```
 main() {
-  initLogger()           // 1. FileLogger 즉시 초기화
-  logger.init()          // 2. 로그 디렉토리 생성 + WriteStream 열기
-  logger.interceptConsole()  // 3. 여기서부터 모든 console.* 캡처
-  // ... 서버 시작 ...
-  logger.setLogWs(logWs)    // 4. LogWS 참조 설정 (이후 WS 브로드캐스트 시작)
+  initLogger()           // 1. Initialize FileLogger immediately
+  logger.init()          // 2. Create log directory + open WriteStream
+  logger.interceptConsole()  // 3. Capture all console.* from here on
+  // ... server start ...
+  logger.setLogWs(logWs)    // 4. Set LogWS reference (WS broadcast starts afterwards)
 }
 ```
 
 ### WebView (`main.tsx`)
 
 ```
-initLogForwarder()       // 앱 렌더링 전에 초기화
-// ... React 렌더링 ...
-// SessionContext에서 currentSessionId 변경 시 getLogForwarder().setSessionId() 호출
+initLogForwarder()       // Initialize before app rendering
+// ... React rendering ...
+// Call getLogForwarder().setSessionId() when currentSessionId changes in SessionContext
 ```

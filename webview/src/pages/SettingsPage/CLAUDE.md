@@ -1,76 +1,76 @@
-# 설정 페이지 작성 원칙
+# Settings Page Authoring Principles
 
-`SettingsPage` 하위에 설정 항목을 추가/수정하는 모든 에이전트는 아래 원칙을 따른다.
-**특별한 경우이거나 사용자의 별도 지시가 있는 경우에만** 예외를 둔다.
+Every agent that adds or modifies a setting item under `SettingsPage` follows the principles below.
+Exceptions are made **only in special cases or when the user gives separate instructions.**
 
-## 1. 사전 확인 — 레퍼런스를 먼저 본다
+## 1. Check First — Look at the Reference First
 
-설정을 추가하기 **전에**, 같은 설정이 커서(Cursor)의 Claude Code 공식 확장에 이미 있는지 확인한다.
+**Before** adding a setting, verify whether the same setting already exists in Cursor's official Claude Code extension.
 
-- 레퍼런스 위치: `~/.vscode/extensions/anthropic.claude-code-*` (또는 `~/.cursor/extensions/...`).
-  설정 키는 `package.json` 의 `contributes.configuration`(예: `claudeCode.*`), UI 텍스트/동작은
-  `webview/index.js`(minified)에서 확인. ([[cursor-claude-code-extension-bundle-reverse-engineering]] 참고)
-- **대칭되는 기능이 있으면, 동작 방식·제목/설명 텍스트·값 타입을 가능한 한 그대로 가져온다.**
-  레퍼런스와 100% 동일하게 만드는 것이 베스트이자 목표(goal)다. 자의적으로 다르게 만들지 않는다.
-- 대칭 기능이 없을 때만 아래 원칙들로 넘어간다.
+- Reference location: `~/.vscode/extensions/anthropic.claude-code-*` (or `~/.cursor/extensions/...`).
+  Setting keys are in `package.json` under `contributes.configuration` (e.g., `claudeCode.*`); UI text/behavior is in
+  `webview/index.js` (minified). (See [[cursor-claude-code-extension-bundle-reverse-engineering]])
+- **If a matching feature exists, bring over its behavior, title/description text, and value type as faithfully as possible.**
+  Making it 100% identical to the reference is the best practice and the goal. Do not make it arbitrarily different.
+- Only when there is no matching feature do you move on to the principles below.
 
-## 2. 레퍼런스에 없으면 — 간단·명료하게
+## 2. If Not in the Reference — Keep It Simple and Clear
 
-레퍼런스에 대칭이 없는 새 설정은 가급적 **가장 간단한 형태**로 만든다.
+A new setting with no match in the reference should be made in the **simplest possible form**.
 
-- 설명 텍스트도 최대한 짧게. **모바일에서 봐도 한 문장으로 끊기는 수준**으로 — 간단하되 명료하게.
-- 예: `CLAUDE_CONFIG_DIR` → 라벨 `CLAUDE_CONFIG_DIR`,
-  설명 `Home directory for Claude's config. Same as the CLAUDE_CONFIG_DIR environment variable.`
-- 장황한 다문장 설명(동작 범위 나열, 부연 등)을 피한다.
+- Keep the description text as short as possible. **Short enough to read as a single line even on mobile** — simple but clear.
+- Example: `CLAUDE_CONFIG_DIR` → label `CLAUDE_CONFIG_DIR`,
+  description `Home directory for Claude's config. Same as the CLAUDE_CONFIG_DIR environment variable.`
+- Avoid verbose, multi-sentence descriptions (listing the scope of behavior, side notes, etc.).
 
-## 3. 새 설정은 General 에 추가한다
+## 3. Add New Settings to General
 
-별도 지시가 없으면 새 설정 항목은 [General](./General/index.tsx) 섹션에 넣는다.
-도메인이 명백히 다른 섹션(CLI, Appearance, Privacy 등)에 속할 때만 그쪽에 둔다 — 그것도
-"애매하면 General" 을 기본값으로 삼는다.
+Unless instructed otherwise, put new setting items in the [General](./General/index.tsx) section.
+Only place them in a section that is clearly a different domain (CLI, Appearance, Privacy, etc.) — and even then,
+treat "when in doubt, General" as the default.
 
-## 4. 작명은 사용자의 워딩을 그대로 쓴다
+## 4. Use the User's Wording As-Is for Naming
 
-라벨·키 이름을 자의적으로 변형하지 않는다. 사용자가 사용한 단어의 텍스트를 **그대로** 쓴다.
+Do not arbitrarily alter label/key names. Use the **exact** text of the words the user used.
 
-- 사용자가 `CLAUDE_CONFIG_DIR` 이라 부르면 라벨도 `CLAUDE_CONFIG_DIR`. ~~`Config Directory`~~ 로 멋대로 바꾸지 않는다.
-- 환경변수·플래그·CLI 옵션 등 고유 식별자는 원형 그대로 노출한다.
+- If the user calls it `CLAUDE_CONFIG_DIR`, the label is also `CLAUDE_CONFIG_DIR`. Do not change it to ~~`Config Directory`~~ on your own.
+- Expose unique identifiers such as environment variables, flags, and CLI options in their original form.
 
-## 5. 항목 하나 때문에 섹션을 새로 만들지 않는다
+## 5. Don't Create a New Section Just for One Item
 
-`SettingSection`(제목 + 박스)은 **여러 관련 항목을 묶을 때만** 만든다.
-인풋 하나를 추가하면서 `섹션 + 제목 + 설명 + 인풋` 한 세트를 통째로 만드는 것은
-UI 오남용 안티패턴이다. 기존 섹션 안에 `SettingRow` 하나로 추가한다.
+A `SettingSection` (title + box) is created **only when grouping several related items.**
+Creating a whole set of `section + title + description + input` just to add a single input
+is a UI misuse antipattern. Add it as a single `SettingRow` within an existing section.
 
-- 모범: [HostModeRow](./General/HostModeRow.tsx), [ClaudeConfigDirRow](./General/ClaudeConfigDirRow.tsx)
-  — 둘 다 General 섹션 안의 단일 `SettingRow`.
-- 안티패턴: 항목 하나마다 `<SettingSection title="...">` 를 새로 두르는 것.
+- Good examples: [HostModeRow](./General/HostModeRow.tsx), [ClaudeConfigDirRow](./General/ClaudeConfigDirRow.tsx)
+  — both are single `SettingRow`s inside the General section.
+- Antipattern: wrapping each item in a new `<SettingSection title="...">`.
 
-## 6. 저장 버튼을 두지 않는다 — 입력이 곧 저장이다
+## 6. Don't Add a Save Button — Input Is Save
 
-특수한 경우를 제외하면 Save 버튼을 등장시키지 않는다. **입력 = 저장**이어야 한다.
+Except in special cases, do not introduce a Save button. **Input = save** must hold.
 
-- `Select` / `ToggleSwitch`: `onChange` 에서 즉시 저장.
-- 자유 입력(`input`): `onBlur` 에서 저장 (포커스가 떠날 때). 값이 바뀌지 않았으면 저장을 건너뛴다.
-- ~~별도 `Save` 버튼~~, ~~"Save to global / Save to project" 같은 보조 버튼~~ 은 두지 않는다.
+- `Select` / `ToggleSwitch`: save immediately on `onChange`.
+- Free input (`input`): save on `onBlur` (when focus leaves). Skip saving if the value has not changed.
+- Do not add ~~a separate `Save` button~~ or ~~auxiliary buttons like "Save to global / Save to project"~~.
 
-## 컴포넌트 패턴
+## Component Patterns
 
-- 한 설정 항목은 별도 파일의 컴포넌트로 분리하고(예: `XxxRow.tsx`), 섹션 `index.tsx` 에서 조합한다.
-- 공통 레이아웃은 [common](./common) 의 `SettingSection` / `SettingRow` 를 사용한다.
-- 전역/지역(global/project) scope 는 `ScopeTabs` 가 `useSettings` 와 `useClaudeSettings`
-  양쪽 scope 를 동기화하므로, 항목에서는 둘 중 하나의 `scope` 를 읽어 현재 탭에 맞춰 저장한다.
-- 스타일은 Tailwind 클래스로만 한다. 인라인 `style={{}}` 금지.
-- Props 선언, named export, 100줄 초과 시 폴더 분리 등은 프로젝트 루트 컨벤션을 따른다.
+- Separate each setting item into a component in its own file (e.g., `XxxRow.tsx`), and compose it in the section's `index.tsx`.
+- Use `SettingSection` / `SettingRow` from [common](./common) for shared layout.
+- For global/project scope, `ScopeTabs` synchronizes both the `useSettings` and `useClaudeSettings` scopes,
+  so the item reads one of the two `scope`s and saves according to the current tab.
+- Style only with Tailwind classes. Inline `style={{}}` is prohibited.
+- Follow the project root conventions for props declarations, named exports, splitting into a folder when over 100 lines, etc.
 
-## blur 저장 예시 (ClaudeConfigDirRow)
+## Blur-Save Example (ClaudeConfigDirRow)
 
 ```tsx
 <SettingRow label="CLAUDE_CONFIG_DIR" description="...">
   <input
     value={draft}
     onChange={(e) => setDraft(e.target.value)}
-    onBlur={() => void commit()}   // 입력 = 저장, 별도 버튼 없음
+    onBlur={() => void commit()}   // input = save, no separate button
     placeholder="Default (~/.claude)"
   />
 </SettingRow>
