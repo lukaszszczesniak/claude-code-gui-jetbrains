@@ -1,5 +1,8 @@
 # IDE & Editor
-.idea/
+# Ignore everything under .idea except the shared run configurations
+# (bash ./scripts/build.sh wrappers committed for contributors).
+/.idea/*
+!/.idea/runConfigurations
 .vscode/
 .fleet/
 *.iws

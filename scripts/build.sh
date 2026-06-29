@@ -147,6 +147,8 @@ Combined:
   full-build     be-build + wv-build + gradlew build
   dist           be-build + wv-build + gradlew buildPlugin
   all            be-build + wv-build + gradlew build + runIde
+  dev            be-dev + wv-dev (own process groups) + open Vite URL in browser;
+                   Ctrl+C / IDE-Stop tears the whole tree down
   clear-cache    빌드 캐시/결과물 삭제
 HELP
 }
@@ -316,6 +318,9 @@ EOF
     else
       CLAUDE_DEV_MODE=true "$ROOT/gradlew" -p "$ROOT" runIde
     fi
+    ;;
+  dev)
+    bash "$ROOT/scripts/dev.sh"
     ;;
   clear-cache)
     "$ROOT/clear-cache.sh"
