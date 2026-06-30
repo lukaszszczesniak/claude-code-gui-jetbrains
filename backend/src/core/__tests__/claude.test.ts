@@ -11,17 +11,23 @@ vi.mock('../features/settings', () => ({
 }));
 
 // Mock child_process so we can inspect the options passed to spawn/execFile
-// without launching a real process.
+// without launching a real process. `where claude` (used by Claude.which() to
+// resolve the launcher on win32) resolves to a fake absolute .cmd path so the
+// shell:false branch has a concrete executable to run.
+const FAKE_CLAUDE_CMD = 'C:\\Users\\me\\AppData\\npm\\claude.cmd';
+
 vi.mock('child_process', () => ({
   spawn: vi.fn(() => ({ on: vi.fn() })),
   execFile: vi.fn(
     (
-      _cmd: string,
+      cmd: string,
       _args: string[],
       _opts: unknown,
       cb?: (err: unknown, stdout: string, stderr: string) => void,
     ) => {
-      cb?.(null, '{}', '');
+      // Emulate `where claude` returning the launcher's absolute path.
+      const stdout = cmd === 'where' ? `${FAKE_CLAUDE_CMD}\r\n` : '{}';
+      cb?.(null, stdout, '');
       return { on: vi.fn() };
     },
   ),
@@ -109,7 +115,11 @@ describe('Claude', () => {
     it('exec() honors an explicit shell override', async () => {
       setPlatform('win32');
       await Claude.exec(['auth', 'status'], { shell: false });
-      const opts = vi.mocked(cpExecFile).mock.calls[0]?.[2] as { shell?: boolean };
+      // On win32 a shell:false override re-routes through cmd.exe (see the
+      // arbitrary-argv suite below), so the launcher call is the LAST execFile
+      // call. It must still run without an additional shell (shell:false honored).
+      const calls = vi.mocked(cpExecFile).mock.calls;
+      const opts = calls[calls.length - 1]?.[2] as { shell?: boolean };
       expect(opts.shell).toBe(false);
     });
 
@@ -118,6 +128,131 @@ describe('Claude', () => {
       Claude.spawn(['auth', 'login', '--claudeai']);
       const opts = vi.mocked(cpSpawn).mock.calls[0]?.[2] as { shell?: boolean };
       expect(opts.shell).toBe(true);
+    });
+  });
+
+  // Regression for the v0.22.0 Windows cross-platform defect: `claude mcp
+  // add-json <name> <json>` passes arbitrary JSON (quotes, `&`, `%`, `|`, spaces)
+  // as a positional argv. With the default win32 shell:true path, cmd.exe
+  // tokenizes those metacharacters, corrupting the JSON and opening a command
+  // injection surface. Callers that hand untrusted/complex argv must opt into
+  // shell:false; exec() then runs cmd.exe as the spawned file with the .cmd
+  // launcher as an argument.
+  //
+  // What Node actually does here (CVE-2024-27980): Node's batch-file caret/quote
+  // hardening fires ONLY when the spawned file itself is a .cmd/.bat. Here the
+  // spawned file is cmd.exe (a .exe) and the launcher is an argument, so Node
+  // applies only standard CommandLineToArgvW quoting (wraps each arg in double
+  // quotes). Inside those quotes `&` `|` `<` `>` are literal — command injection
+  // is blocked — but `%` is still expanded by cmd.exe even inside quotes, which
+  // would silently corrupt the JSON. execViaCmd therefore rejects any arg
+  // containing `%` before running (see the `%` guard tests below).
+  describe('exec() shell:false on win32 (arbitrary-argv safety)', () => {
+    const originalPlatform = process.platform;
+
+    const setPlatform = (value: NodeJS.Platform) => {
+      Object.defineProperty(process, 'platform', { value, configurable: true });
+    };
+
+    afterEach(() => {
+      setPlatform(originalPlatform);
+      vi.clearAllMocks();
+    });
+
+    const jsonArg = JSON.stringify({ command: 'npx', args: ['-y', 'pkg'], env: { K: 'a & b | c' } });
+
+    it('invokes cmd.exe with the resolved launcher and argv array (no shell tokenization)', async () => {
+      setPlatform('win32');
+      await Claude.exec(['mcp', 'add-json', 'srv', jsonArg], { shell: false });
+
+      // The launcher call is the LAST execFile call (a `where` resolution call
+      // may precede it). It must target a shell executable (cmd.exe / ComSpec).
+      const calls = vi.mocked(cpExecFile).mock.calls;
+      const launcherCall = calls[calls.length - 1];
+      const cmd = launcherCall[0] as string;
+      const callArgs = launcherCall[1] as string[];
+      const opts = launcherCall[2] as { shell?: boolean; windowsVerbatimArguments?: boolean };
+
+      expect(cmd.toLowerCase()).toContain('cmd');
+      // Node must NOT additionally wrap this in a shell — we run cmd.exe ourselves.
+      expect(opts.shell).toBeFalsy();
+      // Keep Node's standard CommandLineToArgvW quoting (each arg double-quoted).
+      // Verbatim mode would pass args raw and re-expose `&|<>` to cmd tokenizing.
+      expect(opts.windowsVerbatimArguments).toBeFalsy();
+
+      // `/c` then the resolved launcher absolute path, then the original argv —
+      // each original arg preserved as its OWN array element (never concatenated
+      // into a single shell string).
+      expect(callArgs).toContain('/c');
+      expect(callArgs).toContain(FAKE_CLAUDE_CMD);
+      expect(callArgs).toContain(jsonArg);
+      const jsonIdx = callArgs.indexOf(jsonArg);
+      expect(callArgs[jsonIdx - 1]).toBe('srv');
+    });
+
+    it('keeps the JSON argument intact as a single element (no splitting on spaces/metachars)', async () => {
+      setPlatform('win32');
+      await Claude.exec(['mcp', 'add-json', 'srv', jsonArg], { shell: false });
+
+      const calls = vi.mocked(cpExecFile).mock.calls;
+      const callArgs = calls[calls.length - 1][1] as string[];
+      // Exactly one element equals the full JSON blob, byte-for-byte.
+      expect(callArgs.filter((a) => a === jsonArg)).toHaveLength(1);
+    });
+
+    it('does not wrap in cmd.exe on non-win32 even with shell:false', async () => {
+      setPlatform('darwin');
+      await Claude.exec(['mcp', 'add-json', 'srv', jsonArg], { shell: false });
+
+      const calls = vi.mocked(cpExecFile).mock.calls;
+      const lastCall = calls[calls.length - 1];
+      const cmd = lastCall[0] as string;
+      const callArgs = lastCall[1] as string[];
+      const opts = lastCall[2] as { shell?: boolean };
+      expect(cmd).toBe('claude');
+      expect(callArgs).toEqual(['mcp', 'add-json', 'srv', jsonArg]);
+      expect(opts.shell).toBeFalsy();
+    });
+
+    // `%` guard: cmd.exe expands `%FOO%` even inside double quotes, so a JSON
+    // value like `"%API_KEY%"` would reach the launcher corrupted. Per the
+    // original-data-preservation rule, fail loudly instead of writing a mangled
+    // config. win32-only (this path), since macOS/Linux never touch cmd.exe.
+    it('throws on win32 when any arg contains `%` (would be cmd-expanded)', async () => {
+      setPlatform('win32');
+      const withPercent = JSON.stringify({ command: 'svc', env: { TOKEN: '%API_KEY%' } });
+
+      await expect(Claude.exec(['mcp', 'add-json', 'srv', withPercent], { shell: false }))
+        .rejects.toThrow(/%/);
+
+      // The guard must fire BEFORE any cmd.exe execution.
+      const ranCmd = vi
+        .mocked(cpExecFile)
+        .mock.calls.some((c) => (c[0] as string).toLowerCase().includes('cmd'));
+      expect(ranCmd).toBe(false);
+    });
+
+    it('does not leak the offending value verbatim in the `%` error message', async () => {
+      setPlatform('win32');
+      const secret = 'super-secret-%TOKEN%-value';
+      const withPercent = JSON.stringify({ command: 'svc', env: { TOKEN: secret } });
+
+      const err = await Claude.exec(['mcp', 'add-json', 'srv', withPercent], { shell: false })
+        .then(() => null)
+        .catch((e: unknown) => e as Error);
+
+      expect(err).toBeInstanceOf(Error);
+      // Mentions `%` is the problem but never echoes the full secret-bearing arg.
+      expect(err!.message).toContain('%');
+      expect(err!.message).not.toContain(secret);
+    });
+
+    it('does NOT apply the `%` guard on non-win32 (cmd.exe uninvolved)', async () => {
+      setPlatform('darwin');
+      const withPercent = JSON.stringify({ command: 'svc', env: { TOKEN: '%API_KEY%' } });
+
+      await expect(Claude.exec(['mcp', 'add-json', 'srv', withPercent], { shell: false }))
+        .resolves.not.toThrow();
     });
   });
 });

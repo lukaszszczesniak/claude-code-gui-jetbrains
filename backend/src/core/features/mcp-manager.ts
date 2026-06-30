@@ -194,7 +194,15 @@ export async function addMcpServer(
   const scopeFlag = scopeCliFlag(scope);
   const args = ['mcp', 'add-json', name, json];
   if (scopeFlag) args.push('-s', scopeFlag);
-  const { stdout, stderr } = await Claude.exec(args, { timeout: 15000, cwd });
+  // shell:false is REQUIRED here: this is the only Claude.exec caller that passes
+  // arbitrary JSON as a positional arg. On win32 the default shell:true path would
+  // let cmd.exe tokenize the JSON's quotes/`&`/`%`/`|`/spaces, corrupting the config
+  // and exposing a command-injection surface. shell:false makes exec() spawn cmd.exe
+  // with the launcher as an argv element so `&|<>` stay literal inside Node's
+  // standard quoting (see Claude.exec). NOTE: a `%` in the JSON cannot be made safe
+  // this way — cmd.exe expands it even inside quotes — so exec() throws on `%`
+  // rather than write a corrupted config; surface that error to the user.
+  const { stdout, stderr } = await Claude.exec(args, { timeout: 15000, cwd, shell: false });
   const combined = `${stdout}\n${stderr}`.toLowerCase();
   if (combined.includes('error') && !combined.includes('already exists')) {
     throw new Error(`claude mcp add-json failed: ${stderr || stdout}`);

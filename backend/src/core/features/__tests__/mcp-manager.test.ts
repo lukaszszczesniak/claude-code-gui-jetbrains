@@ -102,6 +102,17 @@ describe('MCP commands run in the workspace cwd', () => {
     );
   });
 
+  // add-json passes arbitrary JSON as a positional arg, so it must opt out of the
+  // default win32 shell to keep cmd.exe from tokenizing the JSON's metacharacters
+  // (quotes, `&`, `%`, `|`, spaces). The other MCP commands take only simple args.
+  it('runs `claude mcp add-json` with shell:false (no cmd.exe tokenization of JSON)', async () => {
+    await addMcpServer('srv', { command: 'npx', env: { K: 'a & b | c' } }, 'user');
+    expect(execMock).toHaveBeenCalledWith(
+      expect.arrayContaining(['mcp', 'add-json', 'srv']),
+      expect.objectContaining({ shell: false }),
+    );
+  });
+
   it('forwards cwd to `claude mcp remove` to target the right project .mcp.json', async () => {
     await removeMcpServer('srv', 'project', '/ws/root');
     expect(execMock).toHaveBeenCalledWith(

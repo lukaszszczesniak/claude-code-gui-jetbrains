@@ -25,6 +25,10 @@ function resolveWslCwd(cwd: SpawnOptions['cwd']): SpawnOptions['cwd'] {
 export class Claude {
   private static cliPath: string | null = null;
   private static initialized = false;
+  // Cache of the resolved launcher absolute path on win32 (the result of
+  // `where claude`). Populated lazily by execViaCmd() so repeated MCP calls
+  // don't re-shell `where` each time. Reset on refresh() in case cliPath changes.
+  private static resolvedWin32Path: string | null = null;
   // The CLAUDE_CONFIG_DIR the backend inherited at startup (e.g. exported in the
   // user's shell, or echoed temporarily). Captured once, before any plugin-settings
   // override is applied, so we can restore it when the override is later cleared.
@@ -35,6 +39,7 @@ export class Claude {
     const settings = await readSettingsFile();
     Claude.cliPath = (settings.cliPath as string) || null;
     Claude.initialized = true;
+    Claude.resolvedWin32Path = null;
     await Claude.applyConfigDir(workingDir);
   }
 
@@ -96,9 +101,35 @@ export class Claude {
     });
   }
 
-  static exec(args: string[], options?: ExecFileOptions): Promise<{ stdout: string; stderr: string }> {
+  static async exec(args: string[], options?: ExecFileOptions): Promise<{ stdout: string; stderr: string }> {
+    // The default win32 path runs through a shell so the `.cmd`/`.ps1` launcher
+    // resolves (issue #99 — see runExecFile). But a shell tokenizes the argv:
+    // for callers that pass arbitrary values (e.g. `mcp add-json <json>` whose
+    // JSON carries `"`, `&`, `%`, `|`, spaces), cmd.exe would corrupt the
+    // argument and open a command-injection surface. Such callers pass
+    // shell:false to demand non-shell-tokenized argv. On win32 that needs special
+    // handling: Node 18.20.2/20.12.2+ (CVE-2024-27980) refuses to execFile a
+    // .cmd/.bat with shell:false directly (EINVAL), so we spawn cmd.exe ourselves
+    // with the launcher as an argv element (see execViaCmd). macOS/Linux run the
+    // launcher directly with shell:false and need none of this.
+    if (process.platform === 'win32' && options?.shell === false) {
+      return Claude.execViaCmd(args, options);
+    }
+    return Claude.runExecFile(Claude.command, args, options);
+  }
+
+  /**
+   * Run cpExecFile against `command` with the standard env/cwd projection.
+   * `shell` defaults to true on win32 (the #99 launcher-resolution path) unless
+   * the caller overrides it.
+   */
+  private static runExecFile(
+    command: string,
+    args: string[],
+    options?: ExecFileOptions,
+  ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      cpExecFile(Claude.command, args, {
+      cpExecFile(command, args, {
         timeout: 10000,
         ...options,
         cwd: resolveWslCwd(options?.cwd),
@@ -123,14 +154,70 @@ export class Claude {
     });
   }
 
+  /**
+   * win32 non-shell-tokenized path: resolve the `.cmd` launcher to an absolute
+   * path, then run `cmd.exe /d /s /c <launcher> <...args>` with shell:false and
+   * an argv ARRAY (each original argument stays its own element).
+   *
+   * Escaping reality: the spawned file is cmd.exe (a .exe), NOT a .cmd/.bat, so
+   * Node's batch-file caret/quote hardening (CVE-2024-27980) does NOT fire here.
+   * Node applies only standard CommandLineToArgvW quoting — it wraps each arg in
+   * double quotes. Inside those quotes `&` `|` `<` `>` are literal, so command
+   * injection is blocked. BUT cmd.exe still expands `%FOO%` even inside double
+   * quotes, which would silently corrupt the JSON before it reaches the launcher.
+   *
+   * Per the original-data-preservation rule, corrupting config silently is worse
+   * than failing, so we reject any arg containing `%` up front. In practice the
+   * only shell:false caller is `mcp add-json`, whose JSON carries literal `%`
+   * only inside an env value the user can rewrite.
+   */
+  private static async execViaCmd(
+    args: string[],
+    options?: ExecFileOptions,
+  ): Promise<{ stdout: string; stderr: string }> {
+    Claude.assertNoCmdPercentExpansion(args);
+    const launcher = (await Claude.which()) ?? Claude.command;
+    // `/d` skips AutoRun, `/s` keeps quoting predictable, `/c` runs then exits.
+    const comspec = process.env.ComSpec || 'cmd.exe';
+    const cmdArgs = ['/d', '/s', '/c', launcher, ...args];
+    // shell:false: Node spawns cmd.exe directly (not nested in another shell).
+    // windowsVerbatimArguments stays false so Node's standard quoting applies.
+    return Claude.runExecFile(comspec, cmdArgs, { ...options, shell: false });
+  }
+
+  /**
+   * Reject argv that cmd.exe would mangle via `%`-expansion. cmd.exe expands
+   * `%VAR%` even inside the double quotes Node wraps each arg in, so a value like
+   * `%API_KEY%` would reach the launcher altered (or emptied). We fail loudly
+   * rather than write a corrupted config. The error names the position and the
+   * cause but never echoes the full value — an MCP env value may be a secret.
+   */
+  private static assertNoCmdPercentExpansion(args: string[]): void {
+    const idx = args.findIndex((a) => a.includes('%'));
+    if (idx === -1) return;
+    throw new Error(
+      `Cannot run the Claude CLI on Windows: argument #${idx + 1} contains a '%' character, ` +
+      `which Windows cmd.exe expands as an environment variable (even inside quotes) and would ` +
+      `corrupt the value. Remove the '%' from that value (e.g. an MCP server's command/args/env) ` +
+      `and try again.`,
+    );
+  }
+
   static which(): Promise<string | null> {
+    if (process.platform === 'win32' && Claude.resolvedWin32Path) {
+      return Promise.resolve(Claude.resolvedWin32Path);
+    }
     const cmd = process.platform === 'win32' ? 'where' : 'which';
     return new Promise((resolve) => {
       cpExecFile(cmd, [Claude.command], {
         env: Claude.env,
         timeout: 5000,
       }, (err, stdout) => {
-        resolve(err ? null : (stdout?.toString() ?? '').trim().split('\n')[0] || null);
+        const resolved = err ? null : (stdout?.toString() ?? '').trim().split('\n')[0]?.trim() || null;
+        if (process.platform === 'win32' && resolved) {
+          Claude.resolvedWin32Path = resolved;
+        }
+        resolve(resolved);
       });
     });
   }
