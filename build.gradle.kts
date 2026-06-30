@@ -146,11 +146,11 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
-            <h3>0.21.0 - Editor context, at a glance</h3>
+            <h3>0.22.0 - Multiple accounts, MCP servers, and a smoother Settings</h3>
             <ul>
-                <li><b>Editor context tag</b> — the file you're viewing, or the lines you select, now appear as a toggleable tag above the chat input and travel with your message, so Claude always knows what you're looking at. Click the tag to include or exclude it. Brings the Cursor / VS Code experience to JetBrains.</li>
-                <li><b>Respect .gitignore</b> — an optional General setting (off by default) that keeps the contents of .gitignore'd files out of the editor context; only the file path is shared.</li>
-                <li><b>Background workflows</b> — run multi-agent workflows in the background with live progress, and reopen them anytime from the Background tasks panel via the /workflows command.</li>
+                <li><b>Multi-account management</b> is now available in the GUI — save multiple Claude accounts and switch between them with a click, from Settings → Account or the new avatar button in the chat header. Settings → Usage now compares the usage of every saved account on one screen. Switching physically swaps the live credentials (macOS Keychain / .credentials.json) with automatic rollback on failure. <i>Special thanks to @P1rnazarov.</i></li>
+                <li><b>MCP server management</b> is now available in the GUI — view, add, edit, remove, enable/disable, and reconnect MCP servers, no terminal needed. Open it with <code>/MCP Servers</code> in the slash-command palette or from the Customize section. Everything runs on the official <code>claude mcp</code> commands.</li>
+                <li><b>You can now open Settings as an overlay</b> — opening Settings no longer interrupts a running session. It now appears as an overlay over your chat, which keeps streaming underneath, and closes with the X, Esc, or a backdrop click. Prefer the old behavior? A new General setting lets you open Settings in a dedicated tab instead. <i>Special thanks to @P1rnazarov.</i></li>
             </ul>
         """.trimIndent()
     }
