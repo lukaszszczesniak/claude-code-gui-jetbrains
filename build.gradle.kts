@@ -108,19 +108,10 @@ kotlin {
     }
 }
 
-kover {
-    reports {
-        total {
-            xml { onCheck = false }
-            html { onCheck = false }
-        }
-    }
-}
-
 intellijPlatform {
     pluginConfiguration {
-        id = "com.github.yhk1038.claude-code-gui"
-        name = "Claude Code with GUI"
+        id = "com.lukaszszczesniak.claude-code-gui-fork"
+        name = "Claude Code with GUI (fork)"
         version = project.version.toString()
         description = providers.provider {
             // 마켓플레이스 전용 소개 문서(영어 원본)를 그대로 HTML로 변환.
@@ -135,8 +126,8 @@ intellijPlatform {
             renderer.render(document)
         }.get()
         vendor {
-            name = "yhk1038"
-            url = "https://github.com/yhk1038"
+            name = "lukaszszczesniak"
+            url = "https://github.com/lukaszszczesniak"
         }
         ideaVersion {
             sinceBuild = "242"
@@ -146,22 +137,8 @@ intellijPlatform {
             untilBuild = provider { null }
         }
         changeNotes = """
-            <h3>0.22.1 - CLI updates and reliability fixes</h3>
-            <ul>
-                <li>You can now update the Claude Code CLI from Settings → About when a newer version is available; the update runs the command that matches your install method (npm/pnpm/yarn/volta, native, Homebrew, winget). The version shown in the command palette is also clickable to re-check.</li>
-                <li>Fixed: the "Sidebar" placement was ignored on WSL2 — the chat now opens in the tool-window sidebar as chosen, instead of always falling back to an editor tab.</li>
-                <li>Fixed: an occasional blank panel / blank history — bundled resources are now extracted once per version instead of per project, so the panel no longer intermittently renders a blank page after restarts or across multiple projects.</li>
-            </ul>
-            <h3>0.22.0 - Multiple accounts, MCP servers, and a smoother Settings</h3>
-            <ul>
-                <li><b>Multi-account management</b> is now available in the GUI — save multiple Claude accounts and switch between them with a click, from Settings → Account or the new avatar button in the chat header. Settings → Usage now compares the usage of every saved account on one screen. Switching physically swaps the live credentials (macOS Keychain / .credentials.json) with automatic rollback on failure. <i>Special thanks to @P1rnazarov.</i></li>
-                <li><b>MCP server management</b> is now available in the GUI — view, add, edit, remove, enable/disable, and reconnect MCP servers, no terminal needed. Open it with <code>/MCP Servers</code> in the slash-command palette or from the Customize section. Everything runs on the official <code>claude mcp</code> commands.</li>
-                <li><b>You can now open Settings as an overlay</b> — opening Settings no longer interrupts a running session. It now appears as an overlay over your chat, which keeps streaming underneath, and closes with the X, Esc, or a backdrop click. Prefer the old behavior? A new General setting lets you open Settings in a dedicated tab instead. <i>Special thanks to @P1rnazarov.</i></li>
-            </ul>
+            <h3>${providers.gradleProperty("pluginVersion")}</h3>
         """.trimIndent()
-    }
-    publishing {
-        token = providers.environmentVariable("PUBLISH_TOKEN")
     }
     pluginVerification {
         ides {
