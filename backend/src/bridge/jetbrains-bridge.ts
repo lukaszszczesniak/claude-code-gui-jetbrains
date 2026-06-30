@@ -156,8 +156,8 @@ export class JetBrainsBridge implements Bridge {
     });
   }
 
-  async openFile(path: string): Promise<void> {
-    await this.request(MessageType.OPEN_FILE, { path });
+  async openFile(path: string, line?: number, column?: number): Promise<void> {
+    await this.request(MessageType.OPEN_FILE, { path, line, column });
   }
 
   async openDiff(params: {
