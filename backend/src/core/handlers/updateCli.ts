@@ -4,28 +4,48 @@ import type { Bridge } from '../../bridge/bridge-interface';
 import type { IPCMessage } from '../types';
 import { Claude } from '../claude';
 import { augmentedEnv } from '../augmented-path';
+import { execViaCmdArgv } from '../win-exec';
 import { getCliVersion } from './getVersion';
 import { resolveClaudePaths } from './getCliUpdateInfo';
 import { detectPackageManager, updateModeFor, buildUpdateCommand, detectHomebrewCask } from '../cli-update';
 import { MessageType, UpdateMode } from '../../shared';
 
+const UPDATE_TIMEOUT_MS = 180000;
+const UPDATE_MAX_BUFFER = 10 * 1024 * 1024;
+
 /**
  * Run the install-method-specific update command. Updates can take a while
  * (download + link), so allow a generous timeout. Combine stdout+stderr for a
  * useful error message on failure.
+ *
+ * On win32 the launcher (`npm.cmd`, `volta.exe`, `brew`, `winget`, ...) resolves
+ * through cmd.exe, but via [execViaCmdArgv] — a cmd.exe argv ARRAY, not
+ * `shell:true` (which would tokenize a launcher/args path containing spaces such
+ * as `C:\Program Files\...`, the v0.22.x defect). macOS/Linux run the launcher
+ * directly with no shell. NATIVE's bare `claude` is routed through Claude.exec
+ * upstream (it reuses the same launcher-resolving cmd.exe bypass).
  */
 function runUpdate(command: string, args: string[]): Promise<{ ok: boolean; output: string }> {
+  if (process.platform === 'win32') {
+    return execViaCmdArgv(command, args, {
+      env: augmentedEnv(),
+      timeout: UPDATE_TIMEOUT_MS,
+      maxBuffer: UPDATE_MAX_BUFFER,
+    }).then(({ err, stdout, stderr }) => ({
+      ok: !err,
+      output: `${stdout}${stderr}`.trim(),
+    }));
+  }
   return new Promise((resolve) => {
     cpExecFile(
       command,
       args,
       {
         env: augmentedEnv(),
-        timeout: 180000,
-        maxBuffer: 10 * 1024 * 1024,
-        // Windows launchers (npm.cmd, volta.exe wrappers) resolve via a shell,
-        // mirroring Claude.exec's win32 path.
-        shell: process.platform === 'win32',
+        timeout: UPDATE_TIMEOUT_MS,
+        maxBuffer: UPDATE_MAX_BUFFER,
+        // macOS/Linux: run the launcher directly, no shell tokenization.
+        shell: false,
       },
       (err, stdout, stderr) => {
         const output = `${stdout?.toString() ?? ''}${stderr?.toString() ?? ''}`.trim();
@@ -33,6 +53,76 @@ function runUpdate(command: string, args: string[]): Promise<{ ok: boolean; outp
       },
     );
   });
+}
+
+/**
+ * Dispatch the update to the right runner by install method.
+ *
+ * NATIVE's bare `claude update` goes through [Claude.exec] with `shell:false`:
+ * that reuses the SAME cmd.exe argv-array launcher bypass as MCP calls, so on
+ * win32 a CLI installed under `C:\Program Files\...` (a path with a space) is
+ * run without shell tokenization. Every other PM (`npm`/`pnpm`/`yarn`/`volta`/
+ * `brew`/`winget`) is an external launcher, so it goes through [runUpdate],
+ * which applies the same win32 cmd.exe-argv bypass generically.
+ */
+async function runUpdateSpec(command: string, args: string[]): Promise<{ ok: boolean; output: string }> {
+  if (command === 'claude') {
+    try {
+      // shell:false → on win32, Claude.exec resolves the `claude` launcher to an
+      // absolute path and runs it via cmd.exe with an argv array (no tokenizing).
+      const { stdout, stderr } = await Claude.exec(args, {
+        shell: false,
+        timeout: UPDATE_TIMEOUT_MS,
+        maxBuffer: UPDATE_MAX_BUFFER,
+      });
+      return { ok: true, output: `${stdout}${stderr}`.trim() };
+    } catch (err) {
+      // execFile rejects on non-zero exit; surface stdout+stderr for the caller's
+      // permission check. Node attaches these to the error object.
+      const e = err as { stdout?: string | Buffer; stderr?: string; message?: string };
+      const output = `${e.stdout?.toString() ?? ''}${e.stderr?.toString() ?? ''}`.trim() || e.message || '';
+      return { ok: false, output };
+    }
+  }
+  return runUpdate(command, args);
+}
+
+/**
+ * True when an update failure looks like a permission problem: a global install
+ * location the current (non-interactive) user cannot write to. Matches both the
+ * OS errno codes (EACCES/EPERM) and the common textual phrasings package
+ * managers print (npm's "EACCES: permission denied", "need sudo", etc.), since a
+ * shelled-out PM reports the failure in stdout/stderr text rather than as a code.
+ */
+export function isPermissionFailure(output: string): boolean {
+  return /\b(EACCES|EPERM)\b|permission denied|operation not permitted|\bsudo\b|need(s)? (to be )?run.*(root|administrator)|requires? (root|administrator|elevation)/i.test(
+    output,
+  );
+}
+
+/**
+ * The command the user can paste into a terminal to update the CLI themselves.
+ * CLI-equivalence: whatever the GUI would have run, we hand them verbatim so a
+ * permission-blocked update still has a clear manual path.
+ */
+export function terminalHint(command: string, args: string[]): string {
+  return [command, ...args].join(' ');
+}
+
+/**
+ * Compose the user-facing message for a permission-blocked update. Non-silent:
+ * it explains WHY the automatic update could not proceed and gives the exact
+ * command (with `sudo` where a system location needs elevation).
+ */
+export function permissionErrorMessage(command: string, args: string[], output: string): string {
+  const hint = terminalHint(command, args);
+  const needsSudo = process.platform !== 'win32';
+  const suggested = needsSudo ? `sudo ${hint}` : hint;
+  return (
+    `The update could not complete because it needs elevated permissions to write to a global ` +
+    `install location. Run it yourself in a terminal:\n\n    ${suggested}\n\n` +
+    (output ? `(original error: ${output})` : '')
+  ).trim();
 }
 
 /**
@@ -70,12 +160,16 @@ export async function updateCliHandler(
       throw new Error(`Cannot build an update command for ${packageManager}.`);
     }
 
-    // NATIVE's bare `claude` resolves to the configured/derived CLI binary.
-    const command = spec.command === 'claude' ? Claude.command : spec.command;
-    console.log('claude update exec\n', command, spec.args.join(' '), '\n');
+    console.log('claude update exec\n', spec.command, spec.args.join(' '), '\n');
 
-    const { ok, output } = await runUpdate(command, spec.args);
+    const { ok, output } = await runUpdateSpec(spec.command, spec.args);
     if (!ok) {
+      // M3: a global install location the non-interactive backend cannot write
+      // to (sudo-needing system PM, admin-only Program Files). Don't fail
+      // silently — tell the user to run it in a terminal, with the exact command.
+      if (isPermissionFailure(output)) {
+        throw new Error(permissionErrorMessage(spec.command, spec.args, output));
+      }
       throw new Error(output || 'Update command failed');
     }
 

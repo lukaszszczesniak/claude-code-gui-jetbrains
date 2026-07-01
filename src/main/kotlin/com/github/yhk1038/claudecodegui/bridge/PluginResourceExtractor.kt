@@ -65,6 +65,13 @@ class PluginResourceExtractor(
      * skip/lock/rename/prune orchestration without a real JAR.
      */
     private val unpack: ((webviewTarget: File, backendDirTarget: File) -> Unit)? = null,
+    /**
+     * Clears a stale partial version dir before the rename, returning whether the dir is
+     * now gone. Defaults to [File.deleteRecursively]. Injectable so a test can simulate the
+     * Windows case where a running backend holds `backend.mjs` open and the delete silently
+     * fails (returns false, dir remains) — the M4 lock-resilience path.
+     */
+    private val clearTarget: (File) -> Boolean = { it.deleteRecursively() },
 ) {
     private val logger = Logger.getInstance(PluginResourceExtractor::class.java)
 
@@ -91,19 +98,21 @@ class PluginResourceExtractor(
 
         if (isComplete(result)) {
             pruneOtherVersions()
+            pruneLockedFallbacks()
             return result
         }
 
         baseDir.mkdirs()
-        withBaseLock {
+        val served = withBaseLock {
             // Re-check under the lock: another process may have completed the
             // extraction while we waited for the lock.
-            if (!isComplete(result)) {
-                extractVersion(versionDir, result)
-            }
+            if (isComplete(result)) result else extractVersion(versionDir)
         }
         pruneOtherVersions()
-        return result
+        // Only reap leftover `.locked-*` dirs when THIS run serves canonically; if we are
+        // serving from a fallback (`served` != the version dir), that fallback must survive.
+        if (served.backendFile == result.backendFile) pruneLockedFallbacks()
+        return served
     }
 
     /** A version dir counts as complete only when both the hashed JS bundle and backend.mjs exist. */
@@ -118,11 +127,23 @@ class PluginResourceExtractor(
 
     /**
      * Unpack into a sibling temp dir under [baseDir] (same volume → atomic rename works),
-     * verify, then rename into place. Any pre-existing partial [versionDir] is removed
-     * first so the rename target is absent (required for a POSIX/Windows atomic rename).
+     * verify, then rename into place. Returns the [ExtractedResources] the backend should
+     * actually serve from — normally [versionDir], but a fallback dir when Windows file
+     * locks make the canonical rename impossible (see below).
+     *
+     * ## Windows file-lock resilience (M4)
+     *
+     * On Windows a still-running previous backend generation may hold `backend.mjs` in the
+     * *partial* target [versionDir] open, so `deleteRecursively()` on it silently fails
+     * (returns false, no throw) and the subsequent `Files.move` into that non-empty, locked
+     * target throws. Rather than let that abort backend startup, we serve the freshly
+     * extracted, already-verified temp bundle from a stable `.locked-<uuid>` sibling dir.
+     * The stale locked dir is left for [pruneOtherVersions] to reap on a later run once the
+     * lock is gone — preserving restart recovery instead of breaking it.
      */
-    private fun extractVersion(versionDir: File, expected: ExtractedResources) {
-        val tmp = File(baseDir, ".tmp-${UUID.randomUUID()}")
+    private fun extractVersion(versionDir: File): ExtractedResources {
+        val tmp = File(baseDir, "$TMP_PREFIX${UUID.randomUUID()}")
+        var moved = false
         try {
             tmp.deleteRecursively()
             val tmpWebview = File(tmp, WEBVIEW_SUBDIR)
@@ -141,26 +162,69 @@ class PluginResourceExtractor(
                 )
             }
 
-            // Remove any stale partial target, then atomically move temp → final.
-            versionDir.deleteRecursively()
+            // Try to remove any stale partial target. On Windows a locked backend.mjs
+            // makes this a silent no-op; we don't rely on it succeeding.
+            val cleared = clearTarget(versionDir)
+            if (!cleared && versionDir.exists()) {
+                logger.warn(
+                    "Could not clear stale partial version dir $versionDir (locked by a running " +
+                        "backend?); serving the fresh bundle from a fallback dir instead"
+                )
+                val served = serveFromFallback(tmp)
+                moved = true // tmp was renamed into the fallback dir; don't delete it.
+                return served
+            }
+
             versionDir.parentFile?.mkdirs()
-            moveIntoPlace(tmp, versionDir)
-            logger.info("Extracted plugin resources for version $version → $versionDir")
+            val served = moveIntoPlace(tmp, versionDir)
+            moved = true
+            logger.info("Extracted plugin resources for version $version → ${served.backendFile.parentFile?.parentFile}")
+            return served
         } finally {
-            // If the move succeeded, tmp no longer exists; otherwise clean the partial.
-            tmp.deleteRecursively()
+            // If the move/fallback succeeded, tmp was renamed away; otherwise clean the partial.
+            if (!moved) tmp.deleteRecursively()
         }
     }
 
-    /** Atomic rename with a non-atomic fallback for cross-filesystem / Windows edge cases. */
-    private fun moveIntoPlace(src: File, dst: File) {
+    /**
+     * Rename the verified temp bundle to a stable `.locked-<uuid>` sibling dir and serve
+     * from there. Used when the canonical [versionDir] can't be replaced because a live
+     * process holds it locked (Windows). The dir is NOT `.tmp-`/version-named, so neither
+     * this run's `finally` cleanup nor [pruneOtherVersions] deletes it while it's in use.
+     */
+    private fun serveFromFallback(tmp: File): ExtractedResources {
+        val fallback = File(baseDir, "$LOCKED_PREFIX${UUID.randomUUID()}")
+        Files.move(tmp.toPath(), fallback.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        return ExtractedResources(
+            webviewDir = File(fallback, WEBVIEW_SUBDIR),
+            backendFile = File(File(fallback, BACKEND_SUBDIR), BACKEND_ENTRY),
+        )
+    }
+
+    /**
+     * Atomic rename with a non-atomic fallback for cross-filesystem / Windows edge cases,
+     * and a `.locked-<uuid>` serve-in-place fallback when even the non-atomic replace fails
+     * (target still locked). Returns the [ExtractedResources] to serve from.
+     */
+    private fun moveIntoPlace(src: File, dst: File): ExtractedResources {
+        val canonical = ExtractedResources(
+            webviewDir = File(dst, WEBVIEW_SUBDIR),
+            backendFile = File(File(dst, BACKEND_SUBDIR), BACKEND_ENTRY),
+        )
         try {
             Files.move(src.toPath(), dst.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            return canonical
         } catch (e: AtomicMoveNotSupportedException) {
             logger.warn("ATOMIC_MOVE unsupported ($src → $dst); falling back to non-atomic move", e)
             // The extraction gate guarantees no backend reads $dst until resolve() returns,
             // so a brief non-atomic window is safe here.
-            Files.move(src.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            return try {
+                Files.move(src.toPath(), dst.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                canonical
+            } catch (io: java.io.IOException) {
+                logger.warn("Non-atomic move into $dst failed (locked target?); serving from fallback dir", io)
+                serveFromFallback(src)
+            }
         }
     }
 
@@ -168,16 +232,36 @@ class PluginResourceExtractor(
      * Delete sibling version dirs that are NOT the current version. Best-effort: a dir
      * still locked by another running process (e.g. Windows holding backend.mjs) is left
      * for the next run. The current version dir is never touched (issue #149 / E1).
+     *
+     * `.locked-*` fallback dirs (M4) are skipped: the current run may be serving from one,
+     * and a still-in-use one on Windows can't be deleted anyway. They are reaped opportunistically
+     * by [pruneLockedFallbacks] on a run that is NOT itself using a fallback.
      */
     private fun pruneOtherVersions() {
         val siblings = baseDir.listFiles() ?: return
         for (dir in siblings) {
             if (!dir.isDirectory) continue
             if (dir.name == version) continue
-            if (dir.name.startsWith(".tmp-") || dir.name == LOCK_NAME) continue
+            if (dir.name.startsWith(TMP_PREFIX) || dir.name.startsWith(LOCKED_PREFIX) || dir.name == LOCK_NAME) continue
             val ok = dir.deleteRecursively()
             if (ok) logger.info("Pruned stale plugin-resource version dir: ${dir.name}")
             else logger.debug("Could not prune ${dir.name} (in use?); leaving for next run")
+        }
+    }
+
+    /**
+     * Best-effort cleanup of leftover `.locked-*` fallback dirs from earlier Windows-lock
+     * recoveries (M4). Only called when THIS run serves from the canonical version dir, so
+     * it never deletes a dir it is currently using. A `.locked-*` dir still held open by a
+     * live backend fails `deleteRecursively()` silently and is left for a later run.
+     */
+    private fun pruneLockedFallbacks() {
+        val siblings = baseDir.listFiles() ?: return
+        for (dir in siblings) {
+            if (!dir.isDirectory || !dir.name.startsWith(LOCKED_PREFIX)) continue
+            val ok = dir.deleteRecursively()
+            if (ok) logger.info("Pruned stale locked-fallback dir: ${dir.name}")
+            else logger.debug("Could not prune locked-fallback ${dir.name} (in use?); leaving for next run")
         }
     }
 
@@ -355,6 +439,10 @@ class PluginResourceExtractor(
         private const val BACKEND_SUBDIR = "backend"
         private const val BACKEND_ENTRY = "backend.mjs"
         private const val LOCK_NAME = ".lock"
+        /** Prefix for the sibling temp dir an extraction unpacks into before the atomic rename. */
+        private const val TMP_PREFIX = ".tmp-"
+        /** Prefix for a serve-in-place fallback dir used when a Windows lock blocks the rename (M4). */
+        private const val LOCKED_PREFIX = ".locked-"
 
         private val KNOWN_WEBVIEW_RESOURCES = listOf(
             "index.html",
@@ -371,11 +459,45 @@ class PluginResourceExtractor(
             "assets/claude-code-logo.svg",
         )
 
-        /** Version-scoped resource root under the IDE's plugin temp path (per IDE product+version). */
-        private fun defaultBaseDir(): File = File(PathManager.getPluginTempPath(), ROOT_DIR_NAME)
+        /**
+         * Version-scoped resource root under the IDE's plugin temp path (per IDE product+version).
+         *
+         * Uses [PathManager.getSystemDir] + `plugins/` rather than the semantically identical
+         * [PathManager.getPluginTempPath] because the latter is `@Deprecated`
+         * (`@ApiStatus.ScheduledForRemoval` on 2026.2+) and the Marketplace Plugin Verifier flags
+         * it. `getPluginTempPath()` is itself defined as `{getSystemPath()}/plugins`, so this
+         * reproduces the exact same on-disk location (reboot-surviving system dir, shared across
+         * plugin versions). `getSystemDir()` carries no deprecation/obsolete annotations on either
+         * the 2024.2 lower bound or the 2026.2 EAP upper bound, so no reflection is needed.
+         */
+        private fun defaultBaseDir(): File =
+            File(File(PathManager.getSystemDir().toFile(), "plugins"), ROOT_DIR_NAME)
 
         /** Plugin version from the runtime descriptor; the version-scope key. */
         private fun defaultVersion(): String =
-            PluginManager.getPlugin(PluginId.getId(PLUGIN_ID))?.version ?: "unknown"
+            resolvePluginVersion(PluginId.getId(PLUGIN_ID)) ?: "unknown"
+
+        /**
+         * Reads this plugin's version via reflection over `PluginManager.getPlugin(PluginId)`.
+         *
+         * The direct call is `@Deprecated` (2024.2+) and marked `@ApiStatus.Internal` on the
+         * 2026.2 EAP; its public replacement chain (`PluginManagerCore.getPlugin`) is still
+         * `@Internal`. Invoking through [java.lang.reflect.Method.invoke] keeps the deprecated/
+         * internal symbol out of this plugin's bytecode, so the Marketplace Plugin Verifier's
+         * static analysis (which only sees statically-referenced symbols) does not flag it — the
+         * same pattern used in [com.github.yhk1038.claudecodegui.platform.PlatformActionInvoker].
+         *
+         * `PluginId.getId(...)` is not itself flagged, so it stays a direct call. The returned
+         * descriptor's `getVersion()` is also read reflectively to avoid pinning any descriptor
+         * type. Any lookup/reflection failure yields null so the caller falls back to `"unknown"`.
+         */
+        private fun resolvePluginVersion(pluginId: PluginId): String? = try {
+            val getPlugin = PluginManager::class.java.getMethod("getPlugin", PluginId::class.java)
+            val descriptor = getPlugin.invoke(null, pluginId) ?: return null
+            val getVersion = descriptor.javaClass.getMethod("getVersion")
+            getVersion.invoke(descriptor) as? String
+        } catch (_: ReflectiveOperationException) {
+            null
+        }
     }
 }

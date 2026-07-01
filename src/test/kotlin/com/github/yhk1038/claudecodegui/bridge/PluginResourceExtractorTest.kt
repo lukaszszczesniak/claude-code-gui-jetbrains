@@ -19,8 +19,21 @@ class PluginResourceExtractorTest {
     private fun extractor(
         baseDir: File,
         version: String = "1.2.3",
+        clearTarget: (File) -> Boolean = { it.deleteRecursively() },
         unpack: (File, File) -> Unit,
-    ) = PluginResourceExtractor(baseDir = baseDir, version = version, unpack = unpack)
+    ) = PluginResourceExtractor(
+        baseDir = baseDir,
+        version = version,
+        unpack = unpack,
+        clearTarget = clearTarget,
+    )
+
+    /** Seeds a partial (backend-only, no hashed bundle) version dir so extraction runs. */
+    private fun seedPartialVersionDir(base: File, version: String = "1.2.3") {
+        File(base, "$version/webview/assets").mkdirs()
+        File(base, "$version/backend").mkdirs()
+        File(base, "$version/backend/backend.mjs").writeText("// locked backend")
+    }
 
     @Test
     fun `extracts into a version-scoped dir on first resolve`(@TempDir base: File) {
@@ -91,5 +104,73 @@ class PluginResourceExtractorTest {
 
         assertEquals(1, calls.get(), "a partial version dir must be re-extracted")
         assertTrue(File(base, "1.2.3/webview/assets/index-abc123.js").isFile)
+    }
+
+    // ── M4: Windows file-lock resilience ────────────────────────────────────
+
+    @Test
+    fun `serves from a fallback dir when the locked partial version dir cannot be cleared`(@TempDir base: File) {
+        // A partial version dir a running backend holds locked: the delete "fails" (returns
+        // false and leaves the dir), mirroring Windows holding backend.mjs open.
+        seedPartialVersionDir(base)
+
+        val result = extractor(base, clearTarget = { false }) { wv, bd -> completeUnpack(wv, bd) }.resolve()
+
+        // Does NOT throw, and serves a complete bundle from a `.locked-*` fallback dir.
+        assertTrue(result.backendFile.isFile, "fallback backend.mjs must exist")
+        assertTrue(File(result.webviewDir, "assets/index-abc123.js").isFile, "fallback hashed bundle must exist")
+        assertTrue(
+            result.backendFile.absolutePath.contains(".locked-"),
+            "served backend should come from a .locked-* fallback dir: ${result.backendFile}",
+        )
+    }
+
+    @Test
+    fun `keeps the locked partial version dir intact (does not corrupt the running backend)`(@TempDir base: File) {
+        seedPartialVersionDir(base)
+
+        extractor(base, clearTarget = { false }) { wv, bd -> completeUnpack(wv, bd) }.resolve()
+
+        // The locked dir the running backend serves from must survive untouched.
+        assertTrue(File(base, "1.2.3/backend/backend.mjs").isFile, "locked version dir left intact")
+    }
+
+    @Test
+    fun `the fallback dir survives the same-run prune`(@TempDir base: File) {
+        seedPartialVersionDir(base)
+
+        val result = extractor(base, clearTarget = { false }) { wv, bd -> completeUnpack(wv, bd) }.resolve()
+
+        // resolve() prunes right after extraction; a fallback we are serving must not be reaped.
+        assertTrue(result.backendFile.isFile, "the served fallback dir must survive the post-extraction prune")
+        val fallbacks = base.listFiles()?.filter { it.name.startsWith(".locked-") } ?: emptyList()
+        assertEquals(1, fallbacks.size, "exactly one .locked-* fallback dir should remain: $fallbacks")
+    }
+
+    @Test
+    fun `leaves no temp dir after a fallback recovery`(@TempDir base: File) {
+        seedPartialVersionDir(base)
+
+        extractor(base, clearTarget = { false }) { wv, bd -> completeUnpack(wv, bd) }.resolve()
+
+        val leftovers = base.listFiles()?.filter { it.name.startsWith(".tmp-") } ?: emptyList()
+        assertTrue(leftovers.isEmpty(), "no .tmp-* dir should remain after fallback recovery: $leftovers")
+    }
+
+    @Test
+    fun `a later clean run prunes leftover locked-fallback dirs`(@TempDir base: File) {
+        // Simulate a prior Windows-lock recovery leaving a stale `.locked-*` dir behind.
+        val stale = File(base, ".locked-old/backend").apply { mkdirs() }
+        File(stale, "backend.mjs").writeText("// old fallback")
+        // And a complete current version dir, so this run serves canonically (not from a fallback).
+        completeUnpack(File(base, "1.2.3/webview"), File(base, "1.2.3/backend").apply { mkdirs() })
+
+        val calls = AtomicInteger(0)
+        val result = extractor(base) { _, _ -> calls.incrementAndGet() }.resolve()
+
+        assertEquals(0, calls.get(), "a complete version dir must not be re-extracted")
+        assertFalse(File(base, ".locked-old").exists(),
+            "a stale .locked-* dir should be pruned on a canonical-serving run")
+        assertTrue(result.backendFile.isFile, "still serves the canonical version dir")
     }
 }

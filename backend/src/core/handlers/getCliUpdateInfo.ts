@@ -5,6 +5,7 @@ import type { Bridge } from '../../bridge/bridge-interface';
 import type { IPCMessage } from '../types';
 import { Claude } from '../claude';
 import { augmentedEnv } from '../augmented-path';
+import { execViaCmdArgv } from '../win-exec';
 import { getCliVersion } from './getVersion';
 import {
   detectPackageManager,
@@ -19,17 +20,32 @@ import { MessageType, PackageManager, UpdateMode, type CliUpdateInfo } from '../
  * Query npm's registry for the available dist-tag versions. The backend runs on
  * the user's machine, so node/npm exist; `npm view` is an official read command
  * (project philosophy: prefer documented CLI over private protocols).
+ *
+ * win32 runs `npm` (`npm.cmd`) through cmd.exe via [execViaCmdArgv] — a cmd.exe
+ * argv ARRAY, standardized with the CLI-update path (M2). The argv here is fixed
+ * so `shell:true` was safe today, but the argv array keeps every win32 launcher
+ * invocation on one non-tokenizing path: if these args ever gain a variable
+ * value, no space/metachar can split it. macOS/Linux run npm directly.
  */
 async function fetchDistTags(): Promise<{ stable: string | null; latest: string | null }> {
+  const args = ['view', CLAUDE_NPM_PACKAGE, 'dist-tags', '--json'];
+  if (process.platform === 'win32') {
+    const { err, stdout } = await execViaCmdArgv('npm', args, {
+      env: augmentedEnv(),
+      timeout: 15000,
+    });
+    if (err) return { stable: null, latest: null };
+    return parseDistTags(stdout);
+  }
   return new Promise((resolve) => {
     cpExecFile(
       'npm',
-      ['view', CLAUDE_NPM_PACKAGE, 'dist-tags', '--json'],
+      args,
       {
         env: augmentedEnv(),
         timeout: 15000,
-        // npm is npm.cmd on Windows → needs a shell to resolve, like Claude.exec.
-        shell: process.platform === 'win32',
+        // macOS/Linux: run npm directly, no shell tokenization.
+        shell: false,
       },
       (err, stdout) => {
         if (err) {
