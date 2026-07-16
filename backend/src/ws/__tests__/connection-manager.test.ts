@@ -502,6 +502,92 @@ describe('ConnectionManager', () => {
     });
   });
 
+  describe('forced shutdown (PARENT_CLOSING force)', () => {
+    const FORCE_WAIT = 1_500;
+    let exitSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+      exitSpy.mockClear();
+      vi.mocked(Claude.killTree).mockClear();
+      vi.mocked(Claude.killTree).mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      exitSpy.mockRestore();
+    });
+
+    function mockProcess(pid: number, exitCode: number | null = null) {
+      return {
+        pid,
+        kill: vi.fn(),
+        exitCode,
+        signalCode: null,
+      } as unknown as import('child_process').ChildProcess;
+    }
+
+    it('should shut down despite live clients: disconnect, SIGTERM, then SIGKILL survivors', async () => {
+      const ws = createMockWs();
+      cm.addConnection(ws, ClientEnv.BROWSER, null, null);
+      const survivor = mockProcess(4242);
+      cm.setProcess('sess-1', survivor);
+
+      cm.setParentClosing(true);
+      // Synchronous phase: clients disconnected, CLI trees SIGTERMed.
+      expect(ws.close).toHaveBeenCalled();
+      expect(Claude.killTree).toHaveBeenCalledWith(survivor, 'SIGTERM');
+      expect(exitSpy).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(FORCE_WAIT + 1);
+      expect(Claude.killTree).toHaveBeenCalledWith(survivor, 'SIGKILL');
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should not SIGKILL a tree that exited within the escalation window', async () => {
+      const survivor = mockProcess(4242);
+      const graceful = mockProcess(4343);
+      cm.setProcess('sess-1', survivor);
+      cm.setProcess('sess-2', graceful);
+      // The graceful tree reacts to the SIGTERM by exiting.
+      vi.mocked(Claude.killTree).mockImplementation((proc, signal) => {
+        if (signal === 'SIGTERM' && proc === graceful) {
+          (graceful as { exitCode: number | null }).exitCode = 0;
+        }
+      });
+
+      cm.setParentClosing(true);
+      await vi.advanceTimersByTimeAsync(FORCE_WAIT + 1);
+
+      expect(Claude.killTree).toHaveBeenCalledWith(survivor, 'SIGKILL');
+      expect(Claude.killTree).not.toHaveBeenCalledWith(graceful, 'SIGKILL');
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should ignore close events landing mid-escalation (no premature sync exit)', async () => {
+      const connId = cm.addConnection(createMockWs(), ClientEnv.JETBRAINS, 'panel-1');
+      cm.setProcess('sess-1', mockProcess(4242));
+
+      cm.setParentClosing(true);
+      // The ws.close() issued by the forced path emits a close event that the
+      // ws-server relays as removeConnection — it must not trigger the
+      // synchronous parent-closing exit before the SIGKILL escalation.
+      cm.removeConnection(connId);
+      expect(exitSpy).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(FORCE_WAIT + 1);
+      expect(exitSpy).toHaveBeenCalledTimes(1);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should be idempotent (a second force notification is a no-op)', async () => {
+      cm.setProcess('sess-1', mockProcess(4242));
+      cm.setParentClosing(true);
+      cm.setParentClosing(true);
+      await vi.advanceTimersByTimeAsync(FORCE_WAIT + 1);
+      expect(exitSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('pending editor context buffer', () => {
     it('should return the stashed payload on consume', () => {
       const payload = { absolutePath: '/abs/src/file.ts', relativePath: 'src/file.ts' };

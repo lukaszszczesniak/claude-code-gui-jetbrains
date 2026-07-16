@@ -350,8 +350,12 @@ export enum MessageType {
    * The fast path applies only while no browser/tunnel client remains; a
    * surviving non-JCEF client clears it and restores the normal idle regime
    * (60 s grace), so a page refresh or tunnel hiccup after the IDE exit
-   * cannot kill the backend. Best-effort: an IDE crash never sends this —
-   * that path stays on the ppid watchdog + 60 s idle grace. params: none.
+   * cannot kill the backend. With `force: true` (the user's explicit "Exit"
+   * choice in the exit-confirm dialog) the backend shuts everything down
+   * immediately, live clients included: disconnect all, SIGTERM the CLI
+   * trees, short wait, SIGKILL the stragglers, exit. Best-effort: an IDE
+   * crash never sends this — that path stays on the ppid watchdog + 60 s
+   * idle grace. params: { force?: boolean }.
    */
   PARENT_CLOSING = 'PARENT_CLOSING',
 

@@ -7,6 +7,12 @@ import { Claude } from '../core/claude';
 const SESSION_CLEANUP_GRACE_MS = 30_000;
 const IDLE_SHUTDOWN_GRACE_MS = 60_000;
 /**
+ * Forced-shutdown escalation window (PARENT_CLOSING { force: true }):
+ * how long the SIGTERMed CLI trees get to exit gracefully before the survivors
+ * are SIGKILLed and the backend exits.
+ */
+const FORCE_SHUTDOWN_KILL_WAIT_MS = 1_500;
+/**
  * How long an editor-context payload stays valid while waiting for a webview to
  * connect. The "Add to Claude" action can fire before the JCEF panel has opened
  * its /ws socket (cold start); we stash the payload and replay it to the first
@@ -112,6 +118,14 @@ export class ConnectionManager {
    * Kotlin to send it).
    */
   private parentClosing = false;
+  /**
+   * True while the forced shutdown (PARENT_CLOSING { force: true }) is running
+   * its async SIGTERM → wait → SIGKILL sequence. Guards removeConnection():
+   * the ws.close() calls issued by the forced path emit close events that land
+   * mid-wait, and without the guard they would trigger the synchronous
+   * fast-shutdown path and exit before the SIGKILL escalation runs.
+   */
+  private forceShutdownInProgress = false;
   // Secondary index for O(1) panelId → connectionId resolution. Panel ↔ connection
   // is 1:1 (one JCEF browser per IDE panel, one /ws socket per browser), so this
   // map is always in sync with the panelId stored on each ClientRecord.
@@ -211,6 +225,10 @@ export class ConnectionManager {
     this.connectionMap.delete(connectionId);
     this.clientMap.delete(connectionId);
     console.error('[node-backend]', `Connection removed: ${connectionId}`);
+
+    // The forced-shutdown sequence closes every socket itself; their close
+    // events must not re-enter the shutdown paths below mid-escalation.
+    if (this.forceShutdownInProgress) return;
 
     if (this.connectionMap.size === 0) {
       // Fast path on a clean IDE exit: the JCEF sockets close AFTER the
@@ -575,8 +593,20 @@ export class ConnectionManager {
    * detachments — keeps/restores the pre-fast-path regime (60 s idle grace, gate
    * driven by the ppid watchdog), so a page refresh or tunnel hiccup after
    * the IDE exit cannot kill the backend.
+   *
+   * `force: true` (the user's explicit "Exit" choice in the exit-confirm
+   * dialog) means "close everything now": live clients are NOT a keep-alive
+   * factor — disconnect them all, SIGTERM every CLI tree, give the survivors
+   * a short window, SIGKILL them, exit. Runs asynchronously (see
+   * shutdownForced); the synchronous shutdownAll stays untouched for the
+   * 'exit' hook in server.ts.
    */
-  setParentClosing(): void {
+  setParentClosing(force = false): void {
+    if (force) {
+      this.parentClosing = true;
+      void this.shutdownForced();
+      return;
+    }
     if (this.parentClosing) return;
     if (this.hasNonJcefClient()) {
       console.error(
@@ -605,6 +635,64 @@ export class ConnectionManager {
       'Parent closed cleanly and no /ws clients remain. Shutting down now.',
     );
     this.shutdownAll();
+    process.exit(0);
+  }
+
+  /**
+   * Forced shutdown (PARENT_CLOSING { force: true }): the user chose
+   * "Exit" knowing sessions are streaming, so live clients are deliberately
+   * not a keep-alive factor. Disconnect every client, SIGTERM every CLI tree,
+   * wait FORCE_SHUTDOWN_KILL_WAIT_MS for them to exit, SIGKILL the survivors,
+   * exit. Asynchronous by necessity (the wait); the synchronous shutdownAll()
+   * stays as-is for the process 'exit' hook in server.ts, which cannot await.
+   */
+  private async shutdownForced(): Promise<void> {
+    if (this.forceShutdownInProgress) return;
+    this.forceShutdownInProgress = true;
+
+    for (const timer of this.cleanupTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.cleanupTimers.clear();
+    this.cancelIdleShutdown('shutting down (forced)');
+
+    let closedConnections = 0;
+    for (const ws of this.connectionMap.values()) {
+      ws.close();
+      closedConnections++;
+    }
+    this.connectionMap.clear();
+    this.clientMap.clear();
+    this.panelIdIndex.clear();
+
+    const procs = [...this.sessionRegistry.values()]
+      .map((session) => session.process)
+      .filter((proc): proc is ChildProcess => proc !== null);
+    for (const proc of procs) {
+      Claude.killTree(proc, 'SIGTERM');
+    }
+    console.error(
+      '[node-backend]',
+      `Forced shutdown (user chose Exit): closed ${closedConnections} connection(s), ` +
+        `SIGTERMed ${procs.length} CLI tree(s), escalating to SIGKILL in ${FORCE_SHUTDOWN_KILL_WAIT_MS}ms`,
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, FORCE_SHUTDOWN_KILL_WAIT_MS));
+
+    let escalated = 0;
+    for (const proc of procs) {
+      if (proc.exitCode === null && proc.signalCode === null) {
+        Claude.killTree(proc, 'SIGKILL');
+        escalated++;
+      }
+    }
+    // Clear the registry so the 'exit' hook's SIGKILL sweep doesn't re-signal
+    // trees this path already handled.
+    this.sessionRegistry.clear();
+    console.error(
+      '[node-backend]',
+      `Forced shutdown complete: SIGKILLed ${escalated} surviving CLI tree(s). Exiting.`,
+    );
     process.exit(0);
   }
 

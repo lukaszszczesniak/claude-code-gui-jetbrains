@@ -338,10 +338,13 @@ async function main() {
   // detaches (JCEF sockets close AFTER the notification) — mean an immediate
   // shutdown instead of the 60 s idle grace, but only while no browser/tunnel
   // client remains (a surviving non-JCEF client clears the fast path and
-  // restores the old regime). Best-effort: an IDE crash never sends this and
-  // stays on the ppid-watchdog → grace path above.
-  (bridges[ClientEnv.JETBRAINS] as JetBrainsBridge).onNotification(MessageType.PARENT_CLOSING, () => {
-    connections.setParentClosing();
+  // restores the old regime). `force: true` carries the user's explicit
+  // "Exit" choice from the exit-confirm dialog: shut everything down now,
+  // live clients included (SIGTERM → short wait → SIGKILL stragglers).
+  // Best-effort: an IDE crash never sends this and stays on the
+  // ppid-watchdog → grace path above.
+  (bridges[ClientEnv.JETBRAINS] as JetBrainsBridge).onNotification(MessageType.PARENT_CLOSING, (_method, params) => {
+    connections.setParentClosing(params.force === true);
   });
 
   // 4. Logger에 LogWS 참조 설정
