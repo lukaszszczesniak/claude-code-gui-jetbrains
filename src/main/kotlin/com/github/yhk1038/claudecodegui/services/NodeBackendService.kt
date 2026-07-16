@@ -457,6 +457,13 @@ class NodeBackendService : Disposable {
     fun portOf(projectBasePath: String): Int? = backends[projectBasePath]?.portOrNull()
 
     /**
+     * Ports of every currently RUNNING backend — the query targets for the
+     * exit-confirm modal, which asks each backend's
+     * `GET /internal/status` whether any session is still streaming.
+     */
+    fun runningPorts(): List<Int> = backends.values.mapNotNull { it.portOrNull() }
+
+    /**
      * The single entry point for flipping the "Keep backend running" toggle (both
      * the Settings page and the status-bar card call this): persists the value,
      * eagerly starts a backend for every open project when turning ON, pushes the

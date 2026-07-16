@@ -116,6 +116,12 @@
         <listener
             class="com.github.yhk1038.claudecodegui.startup.BackendParentClosingListener"
             topic="com.intellij.ide.AppLifecycleListener"/>
+        <!-- Exit-confirm modal while a session is still streaming: registers a
+             canExitApplication() veto via Application.addApplicationListener at
+             appFrameCreated (ApplicationListener has no plugin.xml topic) -->
+        <listener
+            class="com.github.yhk1038.claudecodegui.startup.BackendStreamingExitConfirm"
+            topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 
     <!-- Clean up session state only on real tab close (not on tab move/split) -->
