@@ -512,6 +512,26 @@ class NodeBackendService : Disposable {
         logger.info("Project '$projectBasePath' closed — keep-alive gate released (idle regime restored)")
     }
 
+    /**
+     * Broadcast PARENT_CLOSING to every backend on a CLEAN IDE exit, invoked by
+     * [com.github.yhk1038.claudecodegui.startup.BackendParentClosingListener]
+     * from `AppLifecycleListener.appWillBeClosed`. The backend then
+     * shuts down the moment it has no /ws clients — immediately, or when its
+     * JCEF sockets close a beat later — instead of lingering ~60 s in the task
+     * manager after every IDE close. Live browser/tunnel clients keep their
+     * backend alive exactly as before.
+     *
+     * Best-effort by design: a backend without a connected RPC socket just
+     * stays on the ppid-watchdog → idle-grace path, which also covers IDE
+     * crashes (that path is deliberately untouched). The method literal
+     * mirrors the shared MessageType enum on the TS side (PARENT_CLOSING).
+     */
+    fun notifyParentClosing() {
+        val params = buildJsonObject {}
+        backends.values.forEach { it.sendNotification("PARENT_CLOSING", params) }
+        logger.info("PARENT_CLOSING sent to ${backends.size} backend(s) (clean IDE exit)")
+    }
+
     /** Restart the backend for [projectBasePath] (retry path). */
     @Synchronized
     fun restart(projectBasePath: String) {

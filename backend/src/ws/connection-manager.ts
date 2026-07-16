@@ -98,6 +98,20 @@ export class ConnectionManager {
    * clamp).
    */
   private keepAlive: boolean;
+  /**
+   * Set by the PARENT_CLOSING notification (clean IDE exit). Once true, the
+   * idle grace is effectively zero: zero /ws connections — now or when the
+   * last client detaches — mean an immediate shutdown instead of the 60 s
+   * timer. Only holds while no non-JCEF client remains: a live
+   * browser/tunnel client prevents it from being set, and one that survives
+   * the JCEF detachments clears it — otherwise any transient /ws drop after
+   * the IDE exit (page refresh, tunnel hiccup) would kill the backend and its
+   * CLI sessions instantly, where the pre-fast-path regime gave a 60 s grace the
+   * webview's auto-reconnect routinely beat. Never set on an IDE crash (that
+   * path stays on ppid watchdog + grace) and never in standalone mode (no
+   * Kotlin to send it).
+   */
+  private parentClosing = false;
   // Secondary index for O(1) panelId → connectionId resolution. Panel ↔ connection
   // is 1:1 (one JCEF browser per IDE panel, one /ws socket per browser), so this
   // map is always in sync with the panelId stored on each ClientRecord.
@@ -199,8 +213,34 @@ export class ConnectionManager {
     console.error('[node-backend]', `Connection removed: ${connectionId}`);
 
     if (this.connectionMap.size === 0) {
-      this.scheduleIdleShutdown();
+      // Fast path on a clean IDE exit: the JCEF sockets close AFTER the
+      // PARENT_CLOSING notification arrives, so the flag check must live here
+      // too, not only at notification time.
+      if (this.parentClosing) {
+        this.shutdownAfterParentClosed();
+      } else {
+        this.scheduleIdleShutdown();
+      }
+    } else if (this.parentClosing && this.hasNonJcefClient()) {
+      // A browser/tunnel client survived the JCEF
+      // detachments (e.g. it connected between the notification and the JCEF
+      // close events). It must get the pre-fast-path regime back — with the flag
+      // kept, its next transient drop (F5, tunnel hiccup) would kill the
+      // backend instantly instead of giving the 60 s reconnect grace.
+      this.parentClosing = false;
+      console.error(
+        '[node-backend]',
+        'Parent-closing fast shutdown cancelled: a browser/tunnel client is still connected — normal idle regime restored',
+      );
     }
+  }
+
+  /** True when any /ws client without a panelId (browser or tunnel) is connected. */
+  private hasNonJcefClient(): boolean {
+    for (const record of this.clientMap.values()) {
+      if (record.panelId === null) return true;
+    }
+    return false;
   }
 
   // ─── Messaging ──────────────────────────────────────────────────────────────
@@ -517,6 +557,55 @@ export class ConnectionManager {
 
   isKeepAlive(): boolean {
     return this.keepAlive;
+  }
+
+  /**
+   * Fast-shutdown path for a CLEAN IDE exit.
+   * Kotlin sends PARENT_CLOSING from AppLifecycleListener.appWillBeClosed —
+   * i.e. only when the exit is certain — and the backend then treats zero /ws
+   * connections as "shut down right now" instead of waiting the 60 s idle
+   * grace: immediately when no client is connected, or from
+   * removeConnection() when the last one detaches (JCEF sockets close AFTER
+   * the notification). Bypasses the keep-alive gate — the parent the gate was
+   * held up for is going away. An IDE crash never sends this; that path
+   * deliberately stays on ppid watchdog + grace.
+   *
+   * The fast path applies only while no non-JCEF client
+   * remains. A live browser/tunnel client — now, or surviving the JCEF
+   * detachments — keeps/restores the pre-fast-path regime (60 s idle grace, gate
+   * driven by the ppid watchdog), so a page refresh or tunnel hiccup after
+   * the IDE exit cannot kill the backend.
+   */
+  setParentClosing(): void {
+    if (this.parentClosing) return;
+    if (this.hasNonJcefClient()) {
+      console.error(
+        '[node-backend]',
+        'Parent closing cleanly, but a browser/tunnel client is connected — keeping the normal idle regime (no fast shutdown)',
+      );
+      return;
+    }
+    this.parentClosing = true;
+    console.error(
+      '[node-backend]',
+      'Parent closing cleanly — immediate shutdown once no /ws client remains',
+    );
+    if (this.connectionMap.size === 0) {
+      this.shutdownAfterParentClosed();
+    }
+  }
+
+  isParentClosing(): boolean {
+    return this.parentClosing;
+  }
+
+  private shutdownAfterParentClosed(): void {
+    console.error(
+      '[node-backend]',
+      'Parent closed cleanly and no /ws clients remain. Shutting down now.',
+    );
+    this.shutdownAll();
+    process.exit(0);
   }
 
   private scheduleIdleShutdown(): void {

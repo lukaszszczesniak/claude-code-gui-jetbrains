@@ -341,6 +341,19 @@ export enum MessageType {
    * when the IDE process dies. params: { enabled: boolean }.
    */
   SET_KEEP_ALIVE = 'SET_KEEP_ALIVE',
+  /**
+   * Kotlin → Node notification: the IDE is exiting CLEANLY (sent from
+   * AppLifecycleListener.appWillBeClosed, i.e. after the final "can exit?"
+   * veto round). The backend drops its idle grace to ~0: with zero /ws
+   * clients it shuts down immediately, otherwise the moment the last /ws
+   * client detaches (JCEF sockets close AFTER this notification arrives).
+   * The fast path applies only while no browser/tunnel client remains; a
+   * surviving non-JCEF client clears it and restores the normal idle regime
+   * (60 s grace), so a page refresh or tunnel hiccup after the IDE exit
+   * cannot kill the backend. Best-effort: an IDE crash never sends this —
+   * that path stays on the ppid watchdog + 60 s idle grace. params: none.
+   */
+  PARENT_CLOSING = 'PARENT_CLOSING',
 
   // ───────────────────────────────────────────────────────────────────────
   // Logging channel (webview LogForwarder → backend log-ws)

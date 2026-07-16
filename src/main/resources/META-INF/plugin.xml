@@ -110,6 +110,12 @@
         <listener
             class="com.github.yhk1038.claudecodegui.startup.BackendProjectCloseListener"
             topic="com.intellij.openapi.project.ProjectCloseListener"/>
+        <!-- Fast backend shutdown on clean IDE exit: broadcast PARENT_CLOSING so a
+             client-less backend exits immediately instead of lingering ~60 s; an IDE
+             crash stays on the ppid-watchdog + idle-grace path -->
+        <listener
+            class="com.github.yhk1038.claudecodegui.startup.BackendParentClosingListener"
+            topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
 
     <!-- Clean up session state only on real tab close (not on tab move/split) -->

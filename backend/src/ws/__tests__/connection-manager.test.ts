@@ -348,6 +348,160 @@ describe('ConnectionManager', () => {
     });
   });
 
+  describe('parent-closing fast shutdown (clean IDE exit)', () => {
+    const IDLE_GRACE = 60_000;
+    let exitSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+      exitSpy.mockClear();
+    });
+
+    afterEach(() => {
+      exitSpy.mockRestore();
+    });
+
+    it('should shut down immediately when PARENT_CLOSING arrives with zero connections', () => {
+      cm.setParentClosing();
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should wait for the last /ws client, then shut down immediately (JCEF ordering)', () => {
+      // JCEF sockets close AFTER the notification: connection still up when
+      // PARENT_CLOSING arrives, fast path must fire from removeConnection.
+      // (the client must be a JCEF panel — a non-JCEF client would cancel
+      // the fast path instead.)
+      const connId = cm.addConnection(createMockWs(), ClientEnv.JETBRAINS, 'panel-1');
+      cm.setParentClosing();
+      expect(exitSpy).not.toHaveBeenCalled();
+
+      cm.removeConnection(connId);
+      // No timer advance: the shutdown is immediate, not the 60 s grace.
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should bypass the keep-alive gate (keep-alive backend, IDE exiting)', () => {
+      cm.setKeepAlive(true);
+      cm.setParentClosing();
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should cancel an already-armed idle timer and exit now', () => {
+      const connId = cm.addConnection(createMockWs());
+      cm.removeConnection(connId); // arms the 60 s timer
+      cm.setParentClosing();
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      // The armed timer was cleared by shutdownAll — advancing time must not
+      // trigger a second shutdown pass.
+      exitSpy.mockClear();
+      vi.advanceTimersByTime(IDLE_GRACE + 1);
+      expect(exitSpy).not.toHaveBeenCalled();
+    });
+
+    it('should be idempotent (a second PARENT_CLOSING is a no-op)', () => {
+      const connId = cm.addConnection(createMockWs(), ClientEnv.JETBRAINS, 'panel-1');
+      cm.setParentClosing();
+      cm.setParentClosing();
+      expect(exitSpy).not.toHaveBeenCalled();
+      cm.removeConnection(connId);
+      expect(exitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep the 60 s grace on the crash path (no PARENT_CLOSING)', () => {
+      // Control: without the notification the idle regime is untouched.
+      const connId = cm.addConnection(createMockWs());
+      cm.removeConnection(connId);
+      expect(exitSpy).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(IDLE_GRACE + 1);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should report the flag via isParentClosing', () => {
+      const connId = cm.addConnection(createMockWs(), ClientEnv.JETBRAINS, 'panel-1');
+      expect(cm.isParentClosing()).toBe(false);
+      cm.setParentClosing();
+      expect(cm.isParentClosing()).toBe(true);
+      cm.removeConnection(connId);
+    });
+  });
+
+  describe('parent-closing with non-JCEF clients', () => {
+    const IDLE_GRACE = 60_000;
+    let exitSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+      exitSpy.mockClear();
+    });
+
+    afterEach(() => {
+      exitSpy.mockRestore();
+    });
+
+    it('should not arm the fast path while a browser client is connected', () => {
+      const browser = cm.addConnection(createMockWs(), ClientEnv.BROWSER, null, 'http://127.0.0.1:63412');
+      cm.setParentClosing();
+      expect(cm.isParentClosing()).toBe(false);
+
+      // The browser leaving later gets the normal 60 s grace, not the fast exit.
+      cm.removeConnection(browser);
+      expect(exitSpy).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(IDLE_GRACE + 1);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should treat a tunnel client as non-JCEF too', () => {
+      cm.addConnection(createMockWs(), ClientEnv.BROWSER, null, 'https://demo.trycloudflare.com');
+      cm.setParentClosing();
+      expect(cm.isParentClosing()).toBe(false);
+    });
+
+    it('should still fast-exit when only JCEF panels were connected', () => {
+      const panel1 = cm.addConnection(createMockWs(), ClientEnv.JETBRAINS, 'panel-1');
+      const panel2 = cm.addConnection(createMockWs(), ClientEnv.JETBRAINS, 'panel-2');
+      cm.setParentClosing();
+      expect(cm.isParentClosing()).toBe(true);
+
+      cm.removeConnection(panel1);
+      expect(exitSpy).not.toHaveBeenCalled();
+      cm.removeConnection(panel2);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should clear the flag when a browser client survives the JCEF detachments', () => {
+      const panel = cm.addConnection(createMockWs(), ClientEnv.JETBRAINS, 'panel-1');
+      cm.setParentClosing();
+      expect(cm.isParentClosing()).toBe(true);
+
+      // A browser client connects after the notification (e.g. tunnel reconnect
+      // racing the IDE shutdown), then the JCEF panel detaches.
+      const browser = cm.addConnection(createMockWs(), ClientEnv.BROWSER, null, null);
+      cm.removeConnection(panel);
+      expect(cm.isParentClosing()).toBe(false);
+      expect(exitSpy).not.toHaveBeenCalled();
+
+      // From here the old regime applies: 60 s grace after the browser leaves.
+      cm.removeConnection(browser);
+      expect(exitSpy).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(IDLE_GRACE + 1);
+      expect(exitSpy).toHaveBeenCalledWith(0);
+    });
+
+    it('should survive an F5 reconnect after the IDE exit', () => {
+      // Backend outlived the IDE thanks to a browser client; the fast path was
+      // never armed. A page refresh drops and re-opens the connection within
+      // the grace — the backend must survive.
+      const browser = cm.addConnection(createMockWs(), ClientEnv.BROWSER, null, null);
+      cm.setParentClosing();
+
+      cm.removeConnection(browser); // F5: connection drops, 60 s timer arms
+      vi.advanceTimersByTime(2_000);
+      cm.addConnection(createMockWs(), ClientEnv.BROWSER, null, null); // reconnect
+      vi.advanceTimersByTime(IDLE_GRACE * 2);
+      expect(exitSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('pending editor context buffer', () => {
     it('should return the stashed payload on consume', () => {
       const payload = { absolutePath: '/abs/src/file.ts', relativePath: 'src/file.ts' };

@@ -332,6 +332,18 @@ async function main() {
     connections.setKeepAlive(params.enabled === true);
   });
 
+  // Fast shutdown on a CLEAN IDE exit: Kotlin sends
+  // PARENT_CLOSING from AppLifecycleListener.appWillBeClosed right before the
+  // JVM dies. From then on, zero /ws clients — now or when the last one
+  // detaches (JCEF sockets close AFTER the notification) — mean an immediate
+  // shutdown instead of the 60 s idle grace, but only while no browser/tunnel
+  // client remains (a surviving non-JCEF client clears the fast path and
+  // restores the old regime). Best-effort: an IDE crash never sends this and
+  // stays on the ppid-watchdog → grace path above.
+  (bridges[ClientEnv.JETBRAINS] as JetBrainsBridge).onNotification(MessageType.PARENT_CLOSING, () => {
+    connections.setParentClosing();
+  });
+
   // 4. Logger에 LogWS 참조 설정
   logger.setLogWs(logWs);
 
