@@ -4,18 +4,18 @@ import com.github.yhk1038.claudecodegui.services.NodeBackendService
 import com.intellij.ide.AppLifecycleListener
 
 /**
- * Fast backend shutdown on a CLEAN IDE exit.
+ * Fast backend shutdown on a CLEAN IDE exit, with three dispositions.
  *
  * [appWillBeClosed] fires after the final "can exit?" veto round and after
  * settings are saved — the exit is certain at that point. (Deliberately NOT
  * [AppLifecycleListener.appClosing]: that one fires BEFORE the veto round, so
- * a vetoed exit would still have told every backend to die.) Each
- * RPC-connected backend receives a PARENT_CLOSING notification and drops its
- * idle grace to ~0: it exits the moment it has no /ws clients — the JCEF
- * sockets close moments later when the IDE tears the browsers down — instead
- * of lingering ~60 s in the task manager after every IDE close. A live
- * browser/tunnel client keeps its backend alive exactly as before (the mode
- * C/D promise is unchanged).
+ * a vetoed exit would still have told every backend to die.) What each
+ * RPC-connected backend receives is decided by the one-shot disposition the
+ * exit-confirm dialog may have stored ([BackendStreamingExitConfirm]) and is dispatched by [NodeBackendService.notifyParentClosing]: plain
+ * PARENT_CLOSING by default (fast shutdown only while no browser/tunnel
+ * client remains), `{ force: true }` after an explicit "Exit" while sessions
+ * stream, or nothing at all after "Exit, Keep Backend". `isRestart` makes no
+ * difference — an IDE restart takes the same path.
  *
  * Best-effort by design: an IDE crash never runs this listener — the crash
  * path intentionally stays on the backend's ppid watchdog + 60 s idle grace

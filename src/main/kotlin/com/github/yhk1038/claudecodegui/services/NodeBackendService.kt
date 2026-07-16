@@ -520,13 +520,35 @@ class NodeBackendService : Disposable {
     }
 
     /**
-     * Broadcast PARENT_CLOSING to every backend on a CLEAN IDE exit, invoked by
+     * One-shot exit disposition chosen in the three-option exit-confirm dialog
+     *. Written in the veto round
+     * ([com.github.yhk1038.claudecodegui.startup.BackendStreamingExitConfirm]),
+     * consumed by [notifyParentClosing] in `appWillBeClosed`. Defaults to
+     * plain PARENT_CLOSING when the dialog never showed; reset at the start of
+     * every veto round and on consumption, so a vetoed exit cannot leak its
+     * choice into a later one.
+     */
+    val exitDisposition = ExitDispositionHolder()
+
+    /**
+     * Act on the IDE's CLEAN exit for every backend, invoked by
      * [com.github.yhk1038.claudecodegui.startup.BackendParentClosingListener]
-     * from `AppLifecycleListener.appWillBeClosed`. The backend then
-     * shuts down the moment it has no /ws clients — immediately, or when its
-     * JCEF sockets close a beat later — instead of lingering ~60 s in the task
-     * manager after every IDE close. Live browser/tunnel clients keep their
-     * backend alive exactly as before.
+     * from `AppLifecycleListener.appWillBeClosed` (`isRestart` makes
+     * no difference — an IDE restart takes the same path). What is sent
+     * depends on the disposition carried over from the exit-confirm dialog
+     * ([exitDisposition]):
+     *
+     * - [ExitDisposition.NOTIFY_PARENT_CLOSING] (default): plain
+     *   PARENT_CLOSING — the backend shuts down the moment it has no /ws
+     *   clients (immediately, or when its JCEF sockets close a beat later)
+     *   instead of lingering ~60 s in the task manager, but only while no
+     *   browser/tunnel client remains; a surviving non-JCEF client restores
+     *   the normal idle regime.
+     * - [ExitDisposition.FORCE_SHUTDOWN]: PARENT_CLOSING { force: true } —
+     *   the user's informed "close everything"; the backend exits now, live
+     *   clients included.
+     * - [ExitDisposition.KEEP_BACKEND]: nothing is sent — the full pre-fast-path
+     *   regime (ppid watchdog, 60 s idle grace, 30 s session cleanup) applies.
      *
      * Best-effort by design: a backend without a connected RPC socket just
      * stays on the ppid-watchdog → idle-grace path, which also covers IDE
@@ -534,9 +556,27 @@ class NodeBackendService : Disposable {
      * mirrors the shared MessageType enum on the TS side (PARENT_CLOSING).
      */
     fun notifyParentClosing() {
-        val params = buildJsonObject {}
-        backends.values.forEach { it.sendNotification("PARENT_CLOSING", params) }
-        logger.info("PARENT_CLOSING sent to ${backends.size} backend(s) (clean IDE exit)")
+        when (exitDisposition.consume()) {
+            ExitDisposition.KEEP_BACKEND -> {
+                logger.info(
+                    "PARENT_CLOSING withheld from ${backends.size} backend(s) " +
+                        "(user chose Exit, Keep Backend — watchdog + idle-grace regime applies)",
+                )
+            }
+            ExitDisposition.FORCE_SHUTDOWN -> {
+                val params = buildJsonObject { put("force", true) }
+                backends.values.forEach { it.sendNotification("PARENT_CLOSING", params) }
+                logger.info(
+                    "PARENT_CLOSING (force) sent to ${backends.size} backend(s) " +
+                        "(user chose Exit while sessions were streaming)",
+                )
+            }
+            ExitDisposition.NOTIFY_PARENT_CLOSING -> {
+                val params = buildJsonObject {}
+                backends.values.forEach { it.sendNotification("PARENT_CLOSING", params) }
+                logger.info("PARENT_CLOSING sent to ${backends.size} backend(s) (clean IDE exit)")
+            }
+        }
     }
 
     /** Restart the backend for [projectBasePath] (retry path). */
